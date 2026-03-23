@@ -83,7 +83,7 @@ export const PrescriptionEngine: React.FC<Props> = ({ prescription, isGenerating
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       <h2 className="text-lg font-bold text-[#1B3C59] mb-6 flex items-center">
         <FileText className="w-5 h-5 mr-2 text-[#F2C94C]" />
-        扫地僧剧本
+        AI 管理能力提升助手剧本
       </h2>
 
       <div className="space-y-6">

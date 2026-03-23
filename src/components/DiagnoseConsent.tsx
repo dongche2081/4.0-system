@@ -20,10 +20,10 @@ export const DiagnoseConsent: React.FC<Props> = ({ pendingQuery, onSelectStandar
         </h2>
         <div className="space-y-2 max-w-2xl mx-auto">
           <p className="text-gray-500 text-sm leading-relaxed">
-            为了提供更具实战价值的建议，扫地僧建议先进行一次针对性研判。聊一聊能帮助我们更精准地识别组织痛点。
+            为了提供更具实战价值的建议，AI 管理能力提升助手建议先进行一次针对性研判。聊一聊能帮助我们更精准地识别组织痛点。
           </p>
           <p className="text-[#F2C94C] text-[11px] font-bold bg-[#0A0F1D] px-4 py-2 rounded-full inline-block">
-            【学一学】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
+            【问一问】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
           </p>
         </div>
       </div>

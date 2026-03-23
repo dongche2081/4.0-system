@@ -83,7 +83,7 @@ export const TacticalBriefing: React.FC<Props> = ({
   const handleContributionSubmit = () => {
     console.log('Contribution submitted:', contributionForm);
     setShowContributionModal(false);
-    setToast('申请已提交，扫地僧将尽快审核');
+    setToast('申请已提交，AI 管理能力提升助手将尽快审核');
     setTimeout(() => setToast(null), 2000);
     setContributionForm({ title: '', scenario: '', action: '', expertTitle: '' });
   };
@@ -222,7 +222,7 @@ export const TacticalBriefing: React.FC<Props> = ({
               </div>
               <div>
                 <h4 className="text-xl font-black text-[#0A0F1D] mb-2">练一练</h4>
-                <p className="text-xs text-gray-400">情景模拟：基于当前痛点开启实战推演</p>
+                <p className="text-xs text-gray-400">情景模拟练习</p>
               </div>
             </div>
             <div className="absolute top-8 right-8 text-slate-200 group-hover:text-[#F2C94C] transition-all">
@@ -240,7 +240,7 @@ export const TacticalBriefing: React.FC<Props> = ({
               </div>
               <div>
                 <h4 className="text-xl font-black text-[#0A0F1D] mb-2">聊一聊</h4>
-                <p className="text-xs text-gray-400">定制建议：输入详细参数获取专属建议</p>
+                <p className="text-xs text-gray-400">深度智能诊断</p>
               </div>
             </div>
             <div className="absolute top-8 right-8 text-slate-200 group-hover:text-[#F2C94C] transition-all">
@@ -256,7 +256,7 @@ export const TacticalBriefing: React.FC<Props> = ({
           <div className="max-w-4xl mx-auto">
             <IntentionCapture 
               onSearch={(q) => onFollowUp?.(q)}
-              placeholder="针对研判结果，您还有什么想追问扫地僧的？"
+              placeholder="针对研判结果，您还有什么想追问 AI 管理能力提升助手的？"
             />
           </div>
         </div>
@@ -313,7 +313,7 @@ export const TacticalBriefing: React.FC<Props> = ({
                       </div>
                       <div className="pt-12 flex items-center gap-4 opacity-30">
                         <div className="h-px flex-1 bg-slate-200"></div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">扫地僧专家库出品</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">AI 管理能力提升助手专家库出品</div>
                         <div className="h-px flex-1 bg-slate-200"></div>
                       </div>
                     </div>
@@ -527,7 +527,7 @@ export const TacticalBriefing: React.FC<Props> = ({
               <textarea 
                 value={dislikeText}
                 onChange={(e) => setDislikeText(e.target.value)}
-                placeholder="请详细吐槽或给出改进建议，扫地僧将针对性优化..."
+                placeholder="请详细吐槽或给出改进建议，AI 管理能力提升助手将针对性优化..."
                 className="w-full h-32 bg-slate-50 border border-slate-100 rounded-3xl p-4 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-[#F2C94C]/30 transition-all mb-6 resize-none"
               />
 

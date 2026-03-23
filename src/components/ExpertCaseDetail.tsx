@@ -164,7 +164,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({ expertCase, 
             </div>
             <h3 className="text-xl font-bold text-[#1B3C59] text-center mb-2">确认预约深度咨询？</h3>
             <p className="text-gray-500 text-center text-sm mb-8 leading-relaxed">
-              本次预约将消耗 <span className="text-[#1B3C59] font-bold">500 战术积分</span>。扫地僧将在 24 小时内为您协调专家档期。
+              本次预约将消耗 <span className="text-[#1B3C59] font-bold">500 战术积分</span>。AI 管理能力提升助手将在 24 小时内为您协调专家档期。
             </p>
             
             <div className="space-y-3">

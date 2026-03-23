@@ -20,10 +20,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   view, setView, context, userStats, showProfilePopup, setShowProfilePopup, onLogout, isOpen, setIsOpen, isCollapsed, setIsCollapsed
 }) => {
   const menuItems = [
-    { id: 'home', icon: BookOpen, label: '学一学', desc: '内容聚合' },
-    { id: 'practice', icon: Target, label: '练一练', desc: '兵棋推演' },
-    { id: 'diagnose-start', icon: Activity, label: '聊一聊', desc: '实战研判' },
-    { id: 'history', icon: History, label: '历史记录', desc: '指挥官档案库' },
+    { id: 'home', icon: BookOpen, label: '问一问', subLabel: '学习标杆实践' },
+    { id: 'practice', icon: Target, label: '练一练', subLabel: '情景模拟练习' },
+    { id: 'diagnose-start', icon: Activity, label: '聊一聊', subLabel: '深度智能诊断' },
+    { id: 'history', icon: History, label: '历史记录', subLabel: '指挥官档案库' },
   ];
 
   return (
@@ -33,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="w-8 h-8 bg-[#F2C94C] rounded flex-shrink-0 flex items-center justify-center">
             <LayoutGrid className="w-5 h-5 text-white" />
           </div>
-          {!isCollapsed && <h1 className="text-lg font-bold tracking-wider whitespace-nowrap text-slate-900">管理扫地僧</h1>}
+          {!isCollapsed && <h1 className="text-lg font-bold tracking-wider whitespace-nowrap text-slate-900">AI 管理能力提升助手</h1>}
         </div>
         {!isCollapsed && <button onClick={() => setIsOpen(false)} className="md:hidden"><X className="w-6 h-6 text-slate-400" /></button>}
       </div>
@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <div className="ml-4 text-left overflow-hidden">
                 <div className="text-sm whitespace-nowrap">{item.label}</div>
-                <div className="text-[11px] uppercase opacity-70 whitespace-nowrap">{item.desc}</div>
+                <div className="text-xs text-slate-500 font-normal whitespace-nowrap">{item.subLabel}</div>
               </div>
             )}
           </button>

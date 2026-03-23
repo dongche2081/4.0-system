@@ -21,7 +21,7 @@ export const HistoryView: React.FC<Props> = ({ history, onReloadChat, onNavigate
 
       <div className="flex gap-8 border-b border-gray-100">
         {[
-          { id: 'ask', label: '学一学记录', icon: BookOpen },
+          { id: 'ask', label: '问一问记录', icon: BookOpen },
           { id: 'practice', label: '练一练记录', icon: Target },
           { id: 'chat', label: '聊一聊记录', icon: Activity },
           { id: 'mine', label: '我的贡献', icon: Award }

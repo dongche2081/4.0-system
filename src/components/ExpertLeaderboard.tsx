@@ -7,7 +7,7 @@ export const ExpertLeaderboard: React.FC<{ experts: Expert[], onExpertClick: (e:
     <div className="bg-white rounded-[32px] border border-slate-200 flex flex-col h-full overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-lg transition-all duration-300">
       <div className="p-6 border-b border-slate-100 flex items-center justify-between">
         <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2">
-          <Award className="w-4 h-4 text-[#F2C94C]" /> 专家贡献风云榜
+          <Award className="w-4 h-4 text-[#F2C94C]" /> 专家贡献排行榜
         </h3>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">

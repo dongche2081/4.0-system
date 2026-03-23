@@ -335,7 +335,7 @@ export default function App() {
                     <div className="flex-1 flex flex-col items-center justify-center py-8 md:py-12">
                       <div className="text-center mb-8 animate-[fadeIn_0.8s_ease-out]">
                         <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
-                          输入您的管理挑战，即刻获得实战解法
+                          输入你的管理痛点，AI将为您自动匹配资深管理者的实战经验
                         </h2>
                         {renderEmergencyBulletin()}
                       </div>
@@ -354,7 +354,7 @@ export default function App() {
                       <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
                         <div className="p-6 border-b border-black/5 flex items-center gap-3">
                           <Flame className="w-5 h-5 text-orange-500 fill-orange-500" />
-                          <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">组织必修 (HOT)</h3>
+                          <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">公司热点话题 TOP 10</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
                           {TOPICS.filter(t => t.isHot).map(topic => (
@@ -369,7 +369,7 @@ export default function App() {
                       <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
                         <div className="p-6 border-b border-black/5 flex items-center gap-3">
                           <Trophy className="w-5 h-5 text-[#F2C94C]" />
-                          <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">战友最痛 TOP 10</h3>
+                          <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">个人高频痛点 TOP 10</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
                           {TOPICS.filter(t => t.isTop10).map((topic, idx) => (
@@ -425,7 +425,7 @@ export default function App() {
               <TacticalBriefing 
                 topic={selectedTopic} 
                 prescription={activePrescription || (selectedTopic.id === 'diagnostic-result' ? {
-                  truth: `### 研判真相：${diagnosticContext?.intentStage}\n\n**核心风险：** ${diagnosticContext?.riskAssessment}\n\n**干预进度：** ${diagnosticContext?.interventionProgress}\n\n**补充细节：** ${diagnosticContext?.details || '无'}\n\n--- \n\n基于您的团队处于 **${context.businessStage}** 且压力指数为 **${context.pressure}**，扫地僧建议：\n\n1. **立即对齐利益**：针对${diagnosticContext?.riskAssessment}，需在24小时内开启非正式面谈。\n2. **情绪缓冲**：考虑到${diagnosticContext?.interventionProgress}，建议引入第三方中立视角。`,
+                  truth: `### 研判真相：${diagnosticContext?.intentStage}\n\n**核心风险：** ${diagnosticContext?.riskAssessment}\n\n**干预进度：** ${diagnosticContext?.interventionProgress}\n\n**补充细节：** ${diagnosticContext?.details || '无'}\n\n--- \n\n基于您的团队处于 **${context.businessStage}** 且压力指数为 **${context.pressure}**，AI 管理能力提升助手建议：\n\n1. **立即对齐利益**：针对${diagnosticContext?.riskAssessment}，需在24小时内开启非正式面谈。\n2. **情绪缓冲**：考虑到${diagnosticContext?.interventionProgress}，建议引入第三方中立视角。`,
                   script: { opening: '“我们来聊聊这件事...”', responses: ['正在思考...'], closing: '“希望这能帮到您。”' },
                   redLines: []
                 } : selectedTopic.id === 'custom' ? {
@@ -593,7 +593,7 @@ export default function App() {
                     setSelectedTopic(topic);
                     
                     const prescription: Prescription = {
-                      truth: `### 研判真相：${pendingQuery}\n\n**研判维度：** ${diagnostic.questionSet === 'talent' ? '人才保留' : diagnostic.questionSet === 'execution' ? '执行力穿透' : '基础组织画像'}\n\n**核心发现：** ${Object.values(diagnostic).filter(v => typeof v === 'string' && v.length > 0).join(' | ')}\n\n--- \n\n基于您的团队画像，扫地僧建议：\n\n1. **精准打击**：针对研判出的核心问题，立即启动专项对齐。\n2. **工具赋能**：引入匹配当前阶段的管理工具。`,
+                      truth: `### 研判真相：${pendingQuery}\n\n**研判维度：** ${diagnostic.questionSet === 'talent' ? '人才保留' : diagnostic.questionSet === 'execution' ? '执行力穿透' : '基础组织画像'}\n\n**核心发现：** ${Object.values(diagnostic).filter(v => typeof v === 'string' && v.length > 0).join(' | ')}\n\n--- \n\n基于您的团队画像，AI 管理能力提升助手建议：\n\n1. **精准打击**：针对研判出的核心问题，立即启动专项对齐。\n2. **工具赋能**：引入匹配当前阶段的管理工具。`,
                       script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
                       redLines: ['正在划定红线...']
                     };
@@ -634,7 +634,7 @@ export default function App() {
                     </div>
                     <h1 className="text-5xl font-black text-[#0A0F1D] tracking-tight">描述您的管理卡点</h1>
                     <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed">
-                      【学一学】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
+                      【问一问】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
                     </p>
                   </div>
                   
@@ -715,6 +715,12 @@ export default function App() {
             </div>
           </div>
         )}
+
+        <footer className="py-8 text-center">
+          <p className="text-[10px] text-slate-400">
+            及时、精准、有效解决管理痛点，助力每一位管理者提升管理能力
+          </p>
+        </footer>
       </main>
     </div>
   );

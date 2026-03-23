@@ -166,7 +166,7 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
                 </div>
                 <div className="flex-1">
                   <h4 className="text-sm font-bold text-slate-800 group-hover:text-[#F2C94C] transition-colors">《扩张期人才防御建议》：核心动作执行 SOP（含金句）</h4>
-                  <p className="text-xs text-slate-400 mt-1">扫地僧金句摘要：“不要用战术上的勤奋，掩盖战略上的懒惰。”</p>
+                  <p className="text-xs text-slate-400 mt-1">AI 管理能力提升助手金句摘要：“不要用战术上的勤奋，掩盖战略上的懒惰。”</p>
                 </div>
               </div>
             </div>

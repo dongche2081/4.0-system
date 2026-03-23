@@ -29,7 +29,7 @@ export const DigestCard: React.FC<Props> = ({ topicTitle }) => {
         </div>
         
         <div className="bg-[#F4F7F9] p-3 rounded-sm border-l-2 border-[#F2C94C]">
-          <strong className="text-[#F2C94C] block mb-1">【扫地僧金句】</strong>
+          <strong className="text-[#F2C94C] block mb-1">【AI 管理能力提升助手金句】</strong>
           <p className="text-[#2C3E50] font-semibold">
             “不要用战术上的勤奋，掩盖战略上的懒惰。管理者的核心价值，在于激发他人的善意与潜能。”
           </p>
@@ -39,7 +39,7 @@ export const DigestCard: React.FC<Props> = ({ topicTitle }) => {
       <div className="mt-6 border-t border-gray-100 pt-4">
         <h3 className="text-sm font-bold text-[#1B3C59] mb-3 flex items-center">
           <Play className="w-4 h-4 mr-2" />
-          扫地僧原声
+          AI 管理能力提升助手原声
         </h3>
         <div className="bg-black/5 rounded-lg h-32 flex items-center justify-center relative overflow-hidden group cursor-pointer">
           <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>

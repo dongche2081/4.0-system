@@ -70,7 +70,7 @@ export const IntentionCapture: React.FC<Props> = ({
             setShowSuggestions(e.target.value.length > 0);
           }}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder={mode === 'follow-up' ? "基于以上研判，您还有哪些具体的实战困惑？" : "直接描述当下的管理阵地卡点，我来一针见血剖析真相..."}
+          placeholder={mode === 'follow-up' ? "基于以上研判，您还有哪些具体的实战困惑？" : "例如：资源有限如何升级团队能力实现突破"}
           className={`w-full py-5 bg-transparent outline-none ${
             isCommand ? 'text-slate-900 placeholder-slate-300 text-lg' : 'text-slate-700 placeholder-slate-300'
           }`}
@@ -102,7 +102,7 @@ export const IntentionCapture: React.FC<Props> = ({
             className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden z-50"
           >
             <div className="p-2 text-xs text-[#95A5A6] uppercase tracking-wider font-medium bg-[#F4F7F9] border-b border-gray-100">
-              扫地僧，您是指以下问题吗？
+              AI 管理能力提升助手，您是指以下问题吗？
             </div>
             <ul className="py-1">
               {['员工执行力差', '员工有离职倾向', '员工不服从管理'].map((suggestion, idx) => (
