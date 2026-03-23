@@ -1,35 +1,37 @@
 import React, { useState } from 'react';
-import { HistoryItem, AppView } from '../types';
-import { BookOpen, Activity, Target, History as HistoryIcon, ChevronRight, RefreshCw, Award } from 'lucide-react';
+import { HistoryItem, AppView, ExpertCase } from '../types';
+import { BookOpen, Activity, Target, History as HistoryIcon, ChevronRight, RefreshCw, Award, Heart, Bookmark } from 'lucide-react';
 
 interface Props {
   history: HistoryItem[];
+  bookmarks: ExpertCase[];
   onReloadChat: (context: any) => void;
   onNavigate: (view: AppView, item: any) => void;
 }
 
-export const HistoryView: React.FC<Props> = ({ history, onReloadChat, onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'ask' | 'practice' | 'chat' | 'mine'>('ask');
+export const HistoryView: React.FC<Props> = ({ history, bookmarks, onReloadChat, onNavigate }) => {
+  const [activeTab, setActiveTab] = useState<'ask' | 'practice' | 'chat' | 'mine' | 'favorites'>('ask');
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-[fadeIn_0.5s_ease-out]">
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-black text-[#0A0F1D] flex items-center">
-          <HistoryIcon className="w-6 h-6 mr-3 text-[#F2C94C]" /> 历史记录
+          <HistoryIcon className="w-6 h-6 mr-3 text-[#F2C94C]" /> 指挥官档案库
         </h2>
       </div>
 
-      <div className="flex gap-8 border-b border-gray-100">
+      <div className="flex gap-8 border-b border-gray-100 overflow-x-auto no-scrollbar">
         {[
-          { id: 'ask', label: '问一问记录', icon: BookOpen },
-          { id: 'practice', label: '练一练记录', icon: Target },
-          { id: 'chat', label: '聊一聊记录', icon: Activity },
+          { id: 'ask', label: '问一问', icon: BookOpen },
+          { id: 'practice', label: '练一练', icon: Target },
+          { id: 'chat', label: '聊一聊', icon: Activity },
+          { id: 'favorites', label: '我的收藏', icon: Heart },
           { id: 'mine', label: '我的贡献', icon: Award }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-4 text-sm font-bold transition-all border-b-2 -mb-[2px] flex items-center gap-2 ${activeTab === tab.id ? 'border-[#F2C94C] text-[#0A0F1D]' : 'border-transparent text-gray-400'}`}
+            className={`pb-4 text-sm font-bold transition-all border-b-2 -mb-[2px] flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'border-[#F2C94C] text-[#0A0F1D]' : 'border-transparent text-gray-400'}`}
           >
             <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
@@ -103,6 +105,28 @@ export const HistoryView: React.FC<Props> = ({ history, onReloadChat, onNavigate
             ))}
             {history.filter(h => h.query.includes('聊一聊')).length === 0 && (
               <div className="text-center py-20 text-gray-400 italic">暂无聊一聊记录</div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'favorites' && (
+          <div className="grid grid-cols-1 gap-4">
+            {bookmarks.map(item => (
+              <div key={item.id} onClick={() => onNavigate('case-detail', item)} className="bg-white p-6 rounded-2xl border border-gray-100 hover:border-[#F2C94C] cursor-pointer transition-all flex justify-between items-center group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-[#F2C94C]">
+                    <Bookmark className="w-6 h-6 fill-current" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#0A0F1D] mb-1">{item.title}</h4>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase">专家：{item.expertName}</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#F2C94C]" />
+              </div>
+            ))}
+            {bookmarks.length === 0 && (
+              <div className="text-center py-20 text-gray-400 italic">暂无收藏案例</div>
             )}
           </div>
         )}

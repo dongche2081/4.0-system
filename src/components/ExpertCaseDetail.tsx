@@ -1,189 +1,367 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ExpertCase } from '../types';
-import { Award, ChevronLeft, Activity, Users, Coins } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  Share2, 
+  Bookmark, 
+  Heart, 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  RotateCw, 
+  Volume2, 
+  Maximize2,
+  Copy,
+  CheckCircle2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ExpertCaseDetailProps {
   expertCase: ExpertCase;
   onClose: () => void;
-  onBookExpert?: (expertId: string) => void;
+  autoFocusMedia?: 'video' | 'audio' | 'text';
+  onTrackInteraction?: (type: 'click' | 'play' | 'bookmark' | 'like' | 'comment') => void;
+  initialIsBookmarked?: boolean;
+  initialIsLiked?: boolean;
 }
 
-export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({ expertCase, onClose, onBookExpert }) => {
-  const [showBooking, setShowBooking] = useState(false);
+export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({ 
+  expertCase, 
+  onClose,
+  autoFocusMedia: propAutoFocus,
+  onTrackInteraction,
+  initialIsBookmarked = false,
+  initialIsLiked = false
+}) => {
+  const [searchParams] = useSearchParams();
+  const [isBookmarked, setIsBookmarked] = useState(initialIsBookmarked);
+  const [isLiked, setIsLiked] = useState(initialIsLiked);
+  const [showCopyToast, setShowCopyToast] = useState(false);
+  
+  // Video State
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [videoSpeed, setVideoSpeed] = useState(1);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [hasTrackedVideoPlay, setHasTrackedVideoPlay] = useState(false);
+  
+  // Audio State
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [hasTrackedAudioPlay, setHasTrackedAudioPlay] = useState(false);
 
-  const handleConfirmBooking = () => {
-    if (onBookExpert) {
-      onBookExpert(expertCase.expertProfile.id);
-    } else {
-      alert('预约成功！积分已扣除。');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  const videoSectionRef = useRef<HTMLDivElement>(null);
+  const audioSectionRef = useRef<HTMLDivElement>(null);
+  const contentSectionRef = useRef<HTMLDivElement>(null);
+
+  const autoFocus = propAutoFocus || searchParams.get('type') as any;
+
+  // Track CTR on load
+  useEffect(() => {
+    if (onTrackInteraction) {
+      onTrackInteraction(expertCase.expertId, 'click');
     }
-    setShowBooking(false);
+  }, [expertCase.expertId, onTrackInteraction]);
+
+  useEffect(() => {
+    if (autoFocus === 'video' && videoSectionRef.current) {
+      videoSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (autoFocus === 'audio' && audioSectionRef.current) {
+      audioSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (autoFocus === 'text' && contentSectionRef.current) {
+      contentSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [autoFocus]);
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowCopyToast(true);
+    setTimeout(() => setShowCopyToast(false), 2000);
+  };
+
+  const handleBookmark = () => {
+    const newState = !isBookmarked;
+    setIsBookmarked(newState);
+    if (newState && onTrackInteraction) {
+      onTrackInteraction(expertCase.expertId, 'bookmark');
+    }
+  };
+
+  const handleLike = () => {
+    const newState = !isLiked;
+    setIsLiked(newState);
+    if (newState && onTrackInteraction) {
+      onTrackInteraction(expertCase.expertId, 'like');
+    }
+  };
+
+  const toggleVideo = () => {
+    if (videoRef.current) {
+      if (isPlayingVideo) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+        if (!hasTrackedVideoPlay && onTrackInteraction) {
+          onTrackInteraction(expertCase.expertId, 'play');
+          setHasTrackedVideoPlay(true);
+        }
+      }
+      setIsPlayingVideo(!isPlayingVideo);
+    }
+  };
+
+  const handleVideoSpeed = () => {
+    const speeds = [0.5, 1, 1.5, 2];
+    const nextIndex = (speeds.indexOf(videoSpeed) + 1) % speeds.length;
+    const nextSpeed = speeds[nextIndex];
+    setVideoSpeed(nextSpeed);
+    if (videoRef.current) videoRef.current.playbackRate = nextSpeed;
+  };
+
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (isPlayingAudio) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+        if (!hasTrackedAudioPlay && onTrackInteraction) {
+          onTrackInteraction(expertCase.expertId, 'play');
+          setHasTrackedAudioPlay(true);
+        }
+      }
+      setIsPlayingAudio(!isPlayingAudio);
+    }
+  };
+
+  const skipAudio = (seconds: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime += seconds;
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-[#F4F7F9] overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
           >
-            <ChevronLeft className="w-6 h-6 text-[#1B3C59]" />
+            <ChevronLeft className="w-6 h-6 text-slate-600" />
           </button>
-          <div>
-            <h1 className="text-lg font-bold text-[#1B3C59]">{expertCase.title}</h1>
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">专家实战案例库</p>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 truncate max-w-[200px] md:max-w-md">
+            {expertCase.title}
+          </h1>
         </div>
-        <div className="flex items-center space-x-2 px-3 py-1 bg-[#F2C94C]/10 rounded-full border border-[#F2C94C]/20">
-          <Award className="w-4 h-4 text-[#F2C94C]" />
-          <span className="text-xs font-bold text-[#F2C94C]">深度复盘案例</span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleShare}
+            className="p-2.5 hover:bg-slate-100 rounded-xl transition-all text-slate-600 active:scale-95"
+            title="分享链接"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={handleLike}
+            className={`p-2.5 rounded-xl transition-all active:scale-95 ${isLiked ? 'bg-red-50 text-red-500' : 'hover:bg-slate-100 text-slate-600'}`}
+            title="点赞"
+          >
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+          </button>
+          <button 
+            onClick={handleBookmark}
+            className={`p-2.5 rounded-xl transition-all active:scale-95 ${isBookmarked ? 'bg-[#F2C94C]/10 text-[#F2C94C]' : 'hover:bg-slate-100 text-slate-600'}`}
+            title="收藏"
+          >
+            <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''}`} />
+          </button>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <div className="lg:col-span-8 space-y-12">
-            <section className="space-y-6">
-              <div className="flex items-center space-x-3 text-[#1B3C59]">
-                <div className="w-1 h-6 bg-[#F2C94C] rounded-full"></div>
-                <h2 className="text-2xl font-bold">案例背景与核心挑战</h2>
-              </div>
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 leading-relaxed text-[#2C3E50] space-y-4">
-                <p className="text-lg font-medium text-[#1B3C59]/80 italic border-l-4 border-gray-200 pl-6 py-2">
-                  “{expertCase.background || '当时正处于业务的关键转型期，团队面临着前所未有的压力...'}”
-                </p>
-                <div className="text-base whitespace-pre-wrap">
-                  {expertCase.content}
-                </div>
-                <div className="mt-8 p-6 bg-[#EB5757]/5 rounded-3xl border border-[#EB5757]/10">
-                  <div className="text-xs font-bold text-[#EB5757] uppercase tracking-widest mb-4 flex items-center">
-                    <Activity className="w-4 h-4 mr-2" />
-                    管理深水区挑战
-                  </div>
-                  <div className="text-sm text-[#EB5757] font-bold leading-relaxed">
-                    {expertCase.difficulty || '如何在保持高压交付的同时，不损耗核心人才的积极性？'}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center space-x-3 text-[#1B3C59]">
-                <div className="w-1 h-6 bg-[#F2C94C] rounded-full"></div>
-                <h2 className="text-2xl font-bold">专家复盘：手术刀式拆解</h2>
-              </div>
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
-                <div className="flex items-start space-x-6">
-                  <div className="w-12 h-12 rounded-3xl bg-[#1B3C59]/5 flex items-center justify-center text-[#1B3C59] font-black text-xl flex-shrink-0 group-hover:bg-[#F2C94C] group-hover:text-white transition-colors">
-                    01
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-bold text-[#1B3C59]">核心洞察与实战心得</h3>
-                    <p className="text-[#2C3E50] leading-relaxed whitespace-pre-wrap">{expertCase.expertInsight || '核心洞察：执行力差往往不是态度问题，而是目标拆解与反馈机制的断层。'}</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <div className="pt-12 border-t border-gray-200">
-              <div className="bg-[#1B3C59] rounded-3xl p-10 text-white flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#F2C94C]/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                <div className="relative z-10">
-                  <h3 className="text-2xl font-bold mb-2">觉得意犹未尽？</h3>
-                  <p className="text-white/60">直接与该案例背后的实战专家进行深度 1V1 连线，拆解您的具体难题</p>
-                </div>
-                <button 
-                  onClick={() => setShowBooking(true)}
-                  className="relative z-10 px-8 py-4 bg-[#F2C94C] hover:bg-[#F2C94C]/90 text-[#1B3C59] font-black rounded-3xl shadow-xl shadow-[#F2C94C]/20 transition-all active:scale-95 flex items-center space-x-3 whitespace-nowrap"
-                >
-                  <Users className="w-6 h-6" />
-                  <span>与该专家深度聊一聊</span>
-                </button>
-              </div>
-            </div>
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        
+        {/* Section 1: Video Center */}
+        <section ref={videoSectionRef} className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
+          <div className="p-6 border-b border-slate-100">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
+              视频中心
+            </h2>
           </div>
-
-          <div className="lg:col-span-4">
-            <div className="sticky top-28 space-y-6">
-              <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-                <div className="h-32 bg-gradient-to-br from-[#1B3C59] to-blue-900 relative">
-                  <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-                </div>
-                <div className="px-8 pb-8 -mt-16 relative">
-                  <div className="w-32 h-32 rounded-3xl border-4 border-white shadow-2xl overflow-hidden mb-6 mx-auto bg-gray-100">
-                    <img 
-                      src={expertCase.expertProfile.avatar} 
-                      alt={expertCase.expertProfile.name}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <div className="text-center space-y-2 mb-8">
-                    <h3 className="text-2xl font-black text-[#1B3C59]">{expertCase.expertProfile.name}</h3>
-                    <p className="text-[#F2C94C] font-bold text-sm uppercase tracking-widest">{expertCase.expertProfile.title}</p>
-                  </div>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">核心履历</div>
-                      <ul className="space-y-2">
-                        {expertCase.expertProfile.resume.map((item, idx) => (
-                          <li key={idx} className="text-sm flex items-start">
-                            <span className="text-[#F2C94C] mr-2 mt-0.5 flex-shrink-0">▸</span>
-                            <span className="text-[#2C3E50]">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-sm rounded-3xl p-6 border border-white flex items-center justify-around">
-                <div className="text-center">
-                  <div className="text-xl font-black text-[#1B3C59]">120+</div>
-                  <div className="text-[10px] text-gray-400 uppercase font-bold">咨询案例</div>
-                </div>
-                <div className="w-px h-8 bg-gray-200"></div>
-                <div className="text-center">
-                  <div className="text-xl font-black text-[#1B3C59]">98%</div>
-                  <div className="text-[10px] text-gray-400 uppercase font-bold">好评率</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showBooking && (
-        <div className="fixed inset-0 z-[100] bg-[#1B3C59]/80 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 animate-[scaleIn_0.3s_ease-out]">
-            <div className="w-16 h-16 bg-[#F2C94C]/20 rounded-3xl flex items-center justify-center mb-6 mx-auto">
-              <Coins className="w-8 h-8 text-[#F2C94C]" />
-            </div>
-            <h3 className="text-xl font-bold text-[#1B3C59] text-center mb-2">确认预约深度咨询？</h3>
-            <p className="text-gray-500 text-center text-sm mb-8 leading-relaxed">
-              本次预约将消耗 <span className="text-[#1B3C59] font-bold">500 战术积分</span>。AI 管理能力提升助手将在 24 小时内为您协调专家档期。
-            </p>
+          <div className="aspect-video bg-black relative group">
+            <video 
+              ref={videoRef}
+              className="w-full h-full"
+              poster={`https://picsum.photos/seed/${expertCase.id}-video/1280/720`}
+              onTimeUpdate={() => setVideoCurrentTime(videoRef.current?.currentTime || 0)}
+              onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
+              onEnded={() => setIsPlayingVideo(false)}
+            >
+              <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
+            </video>
             
-            <div className="space-y-3">
+            {/* Custom Controls Overlay */}
+            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+              <div className="bg-black/40 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between text-white">
+                <div className="flex items-center gap-4">
+                  <button onClick={toggleVideo} className="hover:text-[#F2C94C] transition-colors">
+                    {isPlayingVideo ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
+                  </button>
+                  <div className="text-xs font-mono">
+                    {formatTime(videoCurrentTime)} / {formatTime(videoDuration)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={handleVideoSpeed}
+                    className="text-xs font-bold px-2 py-1 border border-white/30 rounded hover:bg-white/20 transition-all"
+                  >
+                    {videoSpeed}x
+                  </button>
+                  <button className="hover:text-[#F2C94C] transition-colors">
+                    <Maximize2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {!isPlayingVideo && (
               <button 
-                onClick={handleConfirmBooking}
-                className="w-full py-4 bg-[#1B3C59] text-white font-bold rounded-2xl hover:bg-blue-900 transition-colors shadow-lg shadow-[#1B3C59]/20"
+                onClick={toggleVideo}
+                className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform"
               >
-                确认消耗 500 积分预约
+                <div className="w-20 h-20 bg-[#F2C94C] rounded-full flex items-center justify-center shadow-2xl shadow-[#F2C94C]/40">
+                  <Play className="w-10 h-10 text-white fill-current ml-1" />
+                </div>
+              </button>
+            )}
+          </div>
+          <div className="p-6">
+            <h3 className="font-bold text-slate-800 mb-2">{expertCase.title} - 实战拆解视频</h3>
+            <p className="text-sm text-slate-500">主讲人：{expertCase.expertName}</p>
+          </div>
+        </section>
+
+        {/* Section 2: Audio Center */}
+        <section ref={audioSectionRef} className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-8">
+            <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
+            音频中心
+          </h2>
+          
+          <div className="flex flex-col items-center gap-8">
+            {/* Waveform Visualization (Simulated) */}
+            <div className="w-full h-24 flex items-center justify-center gap-1">
+              {[...Array(40)].map((_, i) => (
+                <motion.div 
+                  key={i}
+                  animate={isPlayingAudio ? {
+                    height: [20, Math.random() * 60 + 20, 20]
+                  } : { height: 20 }}
+                  transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.05 }}
+                  className="w-1.5 bg-[#F2C94C] rounded-full opacity-60"
+                />
+              ))}
+            </div>
+
+            <audio 
+              ref={audioRef}
+              onTimeUpdate={() => setAudioCurrentTime(audioRef.current?.currentTime || 0)}
+              onLoadedMetadata={() => setAudioDuration(audioRef.current?.duration || 0)}
+              onEnded={() => setIsPlayingAudio(false)}
+            >
+              <source src="https://www.w3schools.com/html/horse.mp3" type="audio/mpeg" />
+            </audio>
+
+            <div className="flex items-center gap-8">
+              <button onClick={() => skipAudio(-30)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                <RotateCcw className="w-6 h-6" />
               </button>
               <button 
-                onClick={() => setShowBooking(false)}
-                className="w-full py-4 text-gray-400 font-bold hover:text-[#1B3C59] transition-colors"
+                onClick={toggleAudio}
+                className="w-16 h-16 bg-[#F2C94C] rounded-full flex items-center justify-center shadow-xl shadow-[#F2C94C]/20 hover:scale-105 transition-all"
               >
-                我再想想
+                {isPlayingAudio ? <Pause className="w-8 h-8 text-white fill-current" /> : <Play className="w-8 h-8 text-white fill-current ml-1" />}
+              </button>
+              <button onClick={() => skipAudio(30)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                <RotateCw className="w-6 h-6" />
               </button>
             </div>
+
+            <div className="w-full space-y-2">
+              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-[#F2C94C] transition-all duration-300" 
+                  style={{ width: `${(audioCurrentTime / audioDuration) * 100 || 0}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <span>{formatTime(audioCurrentTime)}</span>
+                <span>{formatTime(audioDuration)}</span>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        </section>
+
+        {/* Section 3: Content Body */}
+        <section ref={contentSectionRef} className="bg-white rounded-3xl p-8 md:p-12 border border-slate-200 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-8">
+            <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
+            图文正文
+          </h2>
+          
+          <article className="prose prose-slate max-w-none">
+            <div className="mb-8 rounded-2xl overflow-hidden">
+              <img 
+                src={`https://picsum.photos/seed/${expertCase.id}-content/1200/600`} 
+                alt="实战场景" 
+                className="w-full h-auto"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            
+            <div className="space-y-6 text-slate-700 leading-relaxed text-lg">
+              {expertCase.content.split('\n\n').map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+              
+              {expertCase.expertInsight && (
+                <div className="mt-12 p-8 bg-slate-50 rounded-3xl border border-slate-100 italic relative">
+                  <div className="absolute -top-4 left-8 px-4 py-1 bg-[#F2C94C] text-white text-xs font-bold rounded-full">专家点评</div>
+                  <p className="text-slate-600">“{expertCase.expertInsight}”</p>
+                </div>
+              )}
+            </div>
+          </article>
+        </section>
+      </div>
+
+      {/* Copy Toast */}
+      <AnimatePresence>
+        {showCopyToast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3"
+          >
+            <CheckCircle2 className="w-5 h-5 text-green-400" />
+            <span className="text-sm font-bold">链接已复制，快去分享给战友吧</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

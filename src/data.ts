@@ -93,7 +93,7 @@ export const EXPERTS: Expert[] = [
     quote: '管理不是管人，而是管好“人与人之间的连接”。',
     points: 12500,
     contentCount: 48,
-    stats: { prescriptions: 120, likes: 450 },
+    stats: { prescriptions: 120, likes: 450, clicks: 1200, plays: 800, bookmarks: 150, comments: 45 },
     topics: ['执行力', '组织变革'],
     resume: ['华为25年经验', '组织发展专家'],
     tags: ['华为背景', '组织专家'],
@@ -106,11 +106,11 @@ export const EXPERTS: Expert[] = [
     name: '李慕华',
     avatar: 'https://picsum.photos/seed/expert2/200/200',
     title: '360高级副总裁/资深教练',
-    bio: '互联网老兵，深谙快速扩张期企业的团队凝聚力建设。曾助力多家创业公司完成从0到1的组织搭建。',
+    bio: '互联网老兵，深谙快速扩张期企业的团队凝聚力建设。曾助力多家创业公司完成从0到1组织搭建。',
     quote: '在不确定性中寻找确定性，是管理者的终身修行。',
     points: 9800,
     contentCount: 36,
-    stats: { prescriptions: 85, likes: 320 },
+    stats: { prescriptions: 85, likes: 320, clicks: 950, plays: 600, bookmarks: 120, comments: 32 },
     topics: ['团队建设', '快速扩张'],
     resume: ['360高级副总裁', '资深教练'],
     tags: ['互联网老兵', '资深教练'],
@@ -127,7 +127,7 @@ export const EXPERTS: Expert[] = [
     quote: '好的制度让坏人变好，坏的制度让好人变坏。',
     points: 8600,
     contentCount: 29,
-    stats: { prescriptions: 60, likes: 210 },
+    stats: { prescriptions: 60, likes: 210, clicks: 780, plays: 450, bookmarks: 85, comments: 21 },
     topics: ['OKR', '绩效管理'],
     resume: ['字节跳动HRBP', '绩效专家'],
     tags: ['绩效专家', '字节背景'],
@@ -144,7 +144,7 @@ export const EXPERTS: Expert[] = [
     quote: '文化不是挂在墙上的标语，而是员工下意识的行为。',
     points: 7200,
     contentCount: 22,
-    stats: { prescriptions: 45, likes: 180 },
+    stats: { prescriptions: 45, likes: 180, clicks: 620, plays: 380, bookmarks: 65, comments: 18 },
     topics: ['企业文化', '冲突解决'],
     resume: ['阿里政委15年', '文化布道师'],
     tags: ['阿里政委', '文化专家']
@@ -158,7 +158,7 @@ export const EXPERTS: Expert[] = [
     quote: '领导力不是头衔，而是影响力。',
     points: 6500,
     contentCount: 18,
-    stats: { prescriptions: 30, likes: 120 },
+    stats: { prescriptions: 30, likes: 120, clicks: 540, plays: 290, bookmarks: 45, comments: 12 },
     topics: ['领导力', '管理培训'],
     resume: ['腾讯学院讲师', '领导力教练'],
     tags: ['领导力教练', '腾讯讲师']
@@ -168,13 +168,36 @@ export const EXPERTS: Expert[] = [
 export const EXPERT_CASES: Record<string, ExpertCase> = {
   'c1': {
     id: 'c1',
-    title: '某独角兽企业研发团队执行力提升实战',
+    title: '核心员工离职预警与挽留实战',
     summary: '通过引入“日清机制”与“红线管理”，在3个月内将项目延期率降低了40%。',
-    content: '详细的案例内容...',
+    content: `### 案例背景：业务转型期的“人才地震”
+
+当时公司正处于从传统业务向数字化转型的关键期，研发团队面临着前所未有的压力。核心架构师小王突然提出离职，这不仅意味着技术断层，更可能引发团队的连锁反应。
+
+### 核心挑战：如何在“高压”与“留人”之间取得平衡？
+
+1. **技术依赖度高**：小王掌握着核心系统的底层逻辑，短期内无人可替代。
+2. **士气低落**：团队成员普遍感到疲惫，对未来方向存在疑虑。
+3. **外部诱惑大**：竞对公司开出了极具吸引力的薪资。
+
+### 战术拆解：手术刀式的挽留方案
+
+**第一步：深度职涯复盘（而非单纯谈钱）**
+主管没有第一时间谈加薪，而是发起了一场深度谈话。发现小王离职的真实原因是对技术边缘化的恐惧，而非薪资。
+
+**第二步：重新定义岗位价值**
+为小王申请了“首席技术专家”的虚拟头衔，并划拨专项经费支持其进行前沿技术预研，满足其技术成就感。
+
+**第三步：建立“人才防火墙”**
+启动人才备份计划，安排两名高潜员工进行技术继承，降低对单一节点的依赖。
+
+### 实战成效
+
+通过这套组合拳，小王最终决定留任，并带领团队攻克了转型期的核心技术难关。团队流失率从 25% 降至 5% 以内。`,
     background: '当时正处于业务的关键转型期，团队面临着前所未有的压力...',
     difficulty: '管理深水区挑战：如何在保持高压交付的同时，不损耗核心人才的积极性？',
-    expertInsight: '核心洞察：执行力差往往不是态度问题，而是目标拆解与反馈机制的断层。',
-    tags: ['执行力', '流程优化', '华为经验'],
+    expertInsight: '执行力差往往不是态度问题，而是目标拆解与反馈机制的断层。管理者的核心价值在于消除信息不对称，并为下属提供即时反馈。',
+    tags: ['执行力', '人才挽留', '华为经验'],
     expertId: 'e1',
     expertName: '张建国',
     expertProfile: {

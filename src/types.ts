@@ -32,6 +32,10 @@ export interface Expert {
   stats: {
     prescriptions: number;
     likes: number;
+    clicks: number;
+    plays: number;
+    bookmarks: number;
+    comments: number;
   };
   topics: string[];
   resume: string[];
@@ -80,6 +84,8 @@ export interface UserStats {
   experience: string;
   scale: string;
   domain: string;
+  bookmarks: string[];
+  likes: string[];
 }
 
 export interface ChatMessage {
@@ -133,6 +139,7 @@ export interface DiagnosticContext {
 
 export interface Prescription {
   truth: string;
+  summary?: string;
   script: { opening: string; responses: string[]; closing: string; };
   redLines: string[];
 }

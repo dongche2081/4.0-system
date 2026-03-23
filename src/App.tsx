@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage } from './types';
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
 import { generateManagementFeedback } from './services/gemini';
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { SimulationEngine } from './components/SimulationEngine';
@@ -14,13 +15,23 @@ import { ExpertLeaderboard } from './components/ExpertLeaderboard';
 import { ExpertProfileView } from './components/ExpertProfileView';
 import { HistoryView } from './components/HistoryView';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare } from 'lucide-react';
+import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare, X } from 'lucide-react';
 
 export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [view, setView] = useState<AppView>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [view, setView] = useState<AppView>('home');
   const [pendingQuery, setPendingQuery] = useState('');
   const [context, setContext] = useState<ProfileContext>(() => {
     const saved = localStorage.getItem('saodiseng_context');
@@ -56,13 +67,71 @@ export default function App() {
   const [isBriefingMode, setIsBriefingMode] = useState(false);
   const [targetTopicId, setTargetTopicId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('全部'); 
-  const [userStats, setUserStats] = useState<UserStats>({
-    points: 1200,
-    medals: ['初出茅庐', '战地观察员'],
-    experience: '3-5年',
-    scale: '5-15人',
-    domain: '研发'
+  const [userStats, setUserStats] = useState<UserStats>(() => {
+    const saved = localStorage.getItem('saodiseng_user_stats');
+    return saved ? JSON.parse(saved) : {
+      points: 1200,
+      medals: ['初出茅庐', '战地观察员'],
+      experience: '3-5年',
+      scale: '5-15人',
+      domain: '研发',
+      bookmarks: [],
+      likes: []
+    };
   });
+
+  const [experts, setExperts] = useState<Expert[]>(EXPERTS);
+
+  useEffect(() => {
+    localStorage.setItem('saodiseng_user_stats', JSON.stringify(userStats));
+  }, [userStats]);
+
+  const handleTrackInteraction = (caseId: string, type: 'click' | 'play' | 'bookmark' | 'like' | 'comment') => {
+    const expertCase = EXPERT_CASES[caseId];
+    if (!expertCase) return;
+
+    setExperts(prev => {
+      return prev.map(expert => {
+        if (expert.id === expertCase.expertId) {
+          const newStats = { ...expert.stats };
+          if (type === 'click') newStats.clicks++;
+          if (type === 'play') newStats.plays++;
+          if (type === 'bookmark') newStats.bookmarks++;
+          if (type === 'like') newStats.likes++;
+          if (type === 'comment') newStats.comments++;
+
+          // Calculate new points based on formula:
+          // Clicks * 1 + Plays * 2 + (Bookmarks + Likes + Comments) * 5
+          const newPoints = (newStats.clicks * 1) + 
+                           (newStats.plays * 2) + 
+                           ((newStats.bookmarks + newStats.likes + newStats.comments) * 5);
+
+          return { ...expert, stats: newStats, points: newPoints };
+        }
+        return expert;
+      }).sort((a, b) => b.points - a.points);
+    });
+
+    if (type === 'bookmark') {
+      setUserStats(prev => {
+        const isBookmarked = prev.bookmarks?.includes(caseId);
+        const newBookmarks = isBookmarked 
+          ? prev.bookmarks?.filter(id => id !== caseId) 
+          : [...(prev.bookmarks || []), caseId];
+        return { ...prev, bookmarks: newBookmarks };
+      });
+    }
+
+    if (type === 'like') {
+      setUserStats(prev => {
+        const isLiked = prev.likes?.includes(caseId);
+        const newLikes = isLiked 
+          ? prev.likes?.filter(id => id !== caseId) 
+          : [...(prev.likes || []), caseId];
+        return { ...prev, likes: newLikes };
+      });
+    }
+  };
 
   const checkAuthAndExecute = (action: () => void) => {
     if (!isLoggedIn) {
@@ -89,7 +158,7 @@ export default function App() {
       type: '战友最痛' 
     };
     setSelectedTopic(topic);
-    setView('topic-detail');
+    navigate(`/topic/${topic.id}`);
 
     if (customDiagnosticContext) {
       setDiagnosticContext(customDiagnosticContext);
@@ -136,12 +205,12 @@ export default function App() {
     setPendingQuery(topic.title);
     
     // Skip diagnosis, go straight to content
-    setView('topic-detail');
+    navigate(`/topic/${topic.id}`);
   };
 
   const handleReloadChat = (oldContext: ProfileContext) => {
     setContext(oldContext);
-    setView('chat');
+    setView('diagnose-start');
   };
 
   const handleHistoryNavigate = (targetView: AppView, item: HistoryItem) => {
@@ -174,12 +243,47 @@ export default function App() {
     });
   };
 
-  const handleDiagnoseComplete = (newContext: ProfileContext, stats?: Partial<UserStats>) => {
-    setContext(newContext);
-    if (stats) {
-      setUserStats(prev => ({ ...prev, ...stats }));
-    }
-    setView('home');
+  const handleDiagnosisComplete = (diagnostic: any) => {
+    setDiagnosticContext(diagnostic);
+    setContext(diagnostic.teamContext);
+    
+    // Create a custom topic for the diagnostic result
+    const topic: Topic = selectedTopic || { 
+      id: 'diagnostic-result', 
+      title: `针对【${pendingQuery}】的研判报告`, 
+      type: '战友最痛' 
+    };
+    setSelectedTopic(topic);
+    
+    const prescription: Prescription = {
+      truth: `### 研判真相：${pendingQuery}\n\n**研判维度：** ${diagnostic.questionSet === 'talent' ? '人才保留' : diagnostic.questionSet === 'execution' ? '执行力穿透' : '基础组织画像'}\n\n**核心发现：** ${Object.values(diagnostic).filter(v => typeof v === 'string' && v.length > 0).join(' | ')}\n\n--- \n\n基于您的团队画像，AI 管理能力提升助手建议：\n\n1. **精准打击**：针对研判出的核心问题，立即启动专项对齐。\n2. **工具赋能**：引入匹配当前阶段的管理工具。`,
+      summary: `当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。`,
+      script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
+      redLines: ['正在划定红线...']
+    };
+    setActivePrescription(prescription);
+
+    // Auto-archive
+    const newHistoryId = Date.now().toString();
+    setActiveHistoryId(newHistoryId);
+    const historyItem: HistoryItem = {
+      id: newHistoryId,
+      query: `针对【${pendingQuery}】的研判报告`,
+      aiResponse: '研判报告已生成',
+      timestamp: Date.now(),
+      context: { ...diagnostic.teamContext },
+      isDeepDiagnosis: true,
+      diagnosticContext: diagnostic,
+      prescription
+    };
+    setHistory(prev => [historyItem, ...prev]);
+    
+    // Persist to localStorage
+    const savedHistory = JSON.parse(localStorage.getItem('management_history') || '[]');
+    localStorage.setItem('management_history', JSON.stringify([historyItem, ...savedHistory]));
+    
+    navigate(`/topic/${topic.id}`);
+    setTargetTopicId(null);
   };
 
   const handleExpertClick = (expert: Expert) => {
@@ -230,10 +334,30 @@ export default function App() {
 
   const handleViewCase = (caseId: string) => {
     const expertCase = EXPERT_CASES[caseId];
-    if (expertCase) {
+    if (expertCase && selectedExpert) {
       setSelectedCase(expertCase);
-      setView('case-detail');
+      navigate(`/expert/${selectedExpert.id}/case/${caseId}`);
     }
+  };
+
+  const ExpertCaseDetailWrapper = () => {
+    const { expertId, caseId } = useParams<{ expertId: string; caseId: string }>();
+    const location = useLocation();
+    const autoFocusMedia = location.state?.autoFocusMedia as any;
+    const expertCase = EXPERT_CASES[caseId || ''];
+
+    if (!expertCase) return <div className="flex items-center justify-center h-full text-slate-400">案例加载中...</div>;
+
+    return (
+      <ExpertCaseDetail 
+        expertCase={expertCase} 
+        onClose={() => navigate(`/expert/${expertId}`)} 
+        autoFocusMedia={autoFocusMedia}
+        onTrackInteraction={(type) => handleTrackInteraction(expertCase.id, type)}
+        initialIsBookmarked={userStats.bookmarks?.includes(expertCase.id)}
+        initialIsLiked={userStats.likes?.includes(expertCase.id)}
+      />
+    );
   };
 
   const renderEmergencyBulletin = () => {
@@ -294,8 +418,8 @@ export default function App() {
       )}
 
       <Sidebar 
-        view={view} 
-        setView={handleSetView} 
+        activeView={view} 
+        onNavigate={handleSetView} 
         context={context} 
         userStats={userStats}
         showProfilePopup={showProfilePopup} 
@@ -383,7 +507,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <ExpertLeaderboard experts={EXPERTS} onExpertClick={handleExpertClick} />
+                      <ExpertLeaderboard experts={experts} onExpertClick={handleExpertClick} />
                     </div>
                   </div>
                 ) : (
@@ -594,6 +718,7 @@ export default function App() {
                     
                     const prescription: Prescription = {
                       truth: `### 研判真相：${pendingQuery}\n\n**研判维度：** ${diagnostic.questionSet === 'talent' ? '人才保留' : diagnostic.questionSet === 'execution' ? '执行力穿透' : '基础组织画像'}\n\n**核心发现：** ${Object.values(diagnostic).filter(v => typeof v === 'string' && v.length > 0).join(' | ')}\n\n--- \n\n基于您的团队画像，AI 管理能力提升助手建议：\n\n1. **精准打击**：针对研判出的核心问题，立即启动专项对齐。\n2. **工具赋能**：引入匹配当前阶段的管理工具。`,
+                      summary: `当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。`,
                       script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
                       redLines: ['正在划定红线...']
                     };
@@ -679,6 +804,7 @@ export default function App() {
             {view === 'history' && (
               <HistoryView 
                 history={history} 
+                bookmarks={(userStats.bookmarks || []).map(id => EXPERT_CASES[id]).filter(Boolean)}
                 onReloadChat={handleReloadChat}
                 onNavigate={handleHistoryNavigate}
               />
@@ -695,7 +821,13 @@ export default function App() {
             )}
 
             {view === 'case-detail' && selectedCase && (
-              <ExpertCaseDetail expertCase={selectedCase} onClose={() => handleSetView('home')} />
+              <ExpertCaseDetail 
+                expertCase={selectedCase} 
+                onClose={() => handleSetView('home')} 
+                onTrackInteraction={(type) => handleTrackInteraction(selectedCase.id, type)}
+                initialIsBookmarked={userStats.bookmarks?.includes(selectedCase.id)}
+                initialIsLiked={userStats.likes?.includes(selectedCase.id)}
+              />
             )}
 
           </div>

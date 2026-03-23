@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Topic, Prescription, Expert, DiagnosticContext, ChatMessage } from '../types';
 import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check } from 'lucide-react';
 import { RichText } from './RichText';
+import { DigestCard } from './DigestCard';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateManagementFeedback } from '../services/gemini';
 import { IntentionCapture } from './IntentionCapture';
@@ -98,6 +99,9 @@ export const TacticalBriefing: React.FC<Props> = ({
     <div className="max-w-4xl mx-auto space-y-8 pb-24 animate-[fadeIn_0.3s] pt-4">
       {/* A. 研判解析区 (亮色一体化) */}
       <section className="space-y-6">
+        {/* AI Insight Container (Refactored DigestCard) */}
+        {topic.id === 'diagnostic-result' && <DigestCard content={prescription?.summary} />}
+
         <div className="bg-white border border-slate-200 p-8 md:p-10 rounded-3xl relative overflow-hidden shadow-sm">
           {isGeneratingFeedback && (
             <div className="flex items-center gap-2 text-[#F2C94C] text-[10px] font-black uppercase tracking-widest mb-6 animate-pulse">
