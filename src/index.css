@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-blue: #1B3C59;
+  --color-wisdom-gold: #F2C94C;
+  --color-reality-red: #EB5757;
+  --color-logic-grey: #F4F7F9;
+  --color-text-main: #2C3E50;
+  --color-text-secondary: #95A5A6;
+  --radius-sm: 4px;
+  
+  --animate-pulse-text: pulse-text 0.3s ease-out forwards;
+  --animate-slide-up: slideUp 0.3s ease-out forwards;
+  --animate-slide-in-right: slideInRight 0.3s ease-out forwards;
+  --animate-fade-in: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes pulse-text {
+  0% { transform: translateY(4px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+:root {
+  --primary-blue: #1B3C59;
+  --wisdom-gold: #F2C94C;
+  --reality-red: #EB5757;
+  --logic-grey: #F4F7F9;
+  --text-main: #2C3E50;
+  --text-secondary: #95A5A6;
+  --border-radius-sm: 4px;
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: "PingFang SC", "Source Han Sans CN", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--logic-grey);
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+/* Custom Input Focus State */
+input:focus, textarea:focus {
+  border-color: var(--wisdom-gold) !important;
+  box-shadow: 0 0 0 4px rgba(235, 87, 87, 0.1) !important;
+  outline: none;
+}
+
+.digest-card {
+  background: white;
+  border-left: 4px solid var(--wisdom-gold);
+  border-radius: var(--border-radius-sm);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+.combat-error {
+  border: 2px solid var(--reality-red);
+  background-color: rgba(235, 87, 87, 0.05);
+  animation: flash-error 0.5s ease-in-out 2;
+}
+
+@keyframes flash-error {
+  0%, 100% { border-color: var(--reality-red); background-color: rgba(235, 87, 87, 0.05); }
+  50% { border-color: transparent; background-color: transparent; }
+}
+
+.glass-panel {
+  background: rgba(27, 60, 89, 0.05);
+  border: 1px solid rgba(27, 60, 89, 0.2);
+  backdrop-filter: blur(8px);
+  border-radius: var(--border-radius-sm);
+}
+
+.btn-primary {
+  background-color: var(--wisdom-gold);
+  color: var(--primary-blue);
+  border-radius: var(--border-radius-sm);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 8px rgba(242, 201, 76, 0.5);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--primary-blue);
+  color: var(--primary-blue);
+  border-radius: var(--border-radius-sm);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(27, 60, 89, 0.05);
+}
+
+/* V3.0 战地黑金核心样式 */
+.glass-card {
+  background: rgba(10, 15, 29, 0.85);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border: 1px solid rgba(242, 201, 76, 0.3);
+  box-shadow: 0 20px 60px rgba(242, 201, 76, 0.1);
+  transform: translateY(-2px);
+}
+
+/* 首页序号艺术字 */
+.rank-number {
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  font-style: italic;
+  font-size: 1.8rem;
+  line-height: 1;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 走字灯动画 */
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 20s linear infinite;
+}
