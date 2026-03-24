@@ -86,6 +86,22 @@ function AppContent() {
     localStorage.setItem('saodiseng_user_stats', JSON.stringify(userStats));
   }, [userStats]);
 
+  const ExpertProfileViewWrapper = ({ experts, onBook, onViewCase }: { experts: Expert[], onBook: (id: string) => void, onViewCase: (caseId: string, expertId: string) => void }) => {
+    const { expertId } = useParams<{ expertId: string }>();
+    const expert = experts.find(e => e.id === expertId);
+
+    if (!expert) return <div className="flex items-center justify-center h-full text-slate-400">专家加载中...</div>;
+
+    return (
+      <ExpertProfileView 
+        expert={expert} 
+        onBack={() => navigate('/')} 
+        onBook={() => onBook(expert.id)}
+        onViewCase={(caseId) => onViewCase(caseId, expert.id)}
+      />
+    );
+  };
+
   const handleTrackInteraction = (caseId: string, type: 'click' | 'play' | 'bookmark' | 'like' | 'comment') => {
     const expertCase = EXPERT_CASES[caseId];
     if (!expertCase) return;
@@ -324,6 +340,21 @@ function AppContent() {
       return;
     }
     setView(newView);
+    
+    const viewToPath: Record<string, string> = {
+      'home': '/',
+      'practice': '/practice',
+      'diagnose-start': '/diagnose-start',
+      'diagnose-engine': '/diagnose-engine',
+      'history': '/history',
+      'expert-profile': '/expert-profile',
+      'topic-detail': selectedTopic ? `/topic/${selectedTopic.id}` : '/',
+    };
+
+    if (viewToPath[newView]) {
+      navigate(viewToPath[newView]);
+    }
+
     if (newView !== 'home') {
       setIsBriefingMode(false);
     }
@@ -332,12 +363,59 @@ function AppContent() {
     }
   };
 
-  const handleViewCase = (caseId: string) => {
+  const handleViewCase = (caseId: string, expertId?: string) => {
     const expertCase = EXPERT_CASES[caseId];
-    if (expertCase && selectedExpert) {
+    const eId = expertId || selectedExpert?.id;
+    if (expertCase && eId) {
       setSelectedCase(expertCase);
-      navigate(`/expert/${selectedExpert.id}/case/${caseId}`);
+      navigate(`/expert/${eId}/case/${caseId}`);
     }
+  };
+
+  const TacticalBriefingWrapper = () => {
+    const { id } = useParams<{ id: string }>();
+    const topic = TOPICS.find(t => t.id === id) || (selectedTopic?.id === id ? selectedTopic : null);
+    
+    if (!topic) return <div className="flex items-center justify-center h-full text-slate-400">话题加载中...</div>;
+
+    return (
+      <TacticalBriefing 
+        topic={topic}
+        prescription={topic.id === 'diagnostic-result' ? {
+          truth: `### 研判真相：${diagnosticContext?.intentStage}\n\n**核心风险：** ${diagnosticContext?.riskAssessment}\n\n**干预进度：** ${diagnosticContext?.interventionProgress}\n\n**补充细节：** ${diagnosticContext?.details || '无'}\n\n--- \n\n基于您的团队处于 **${context.businessStage}** 且压力指数为 **${context.pressure}**，AI 管理能力提升助手建议：\n\n1. **立即对齐利益**：针对${diagnosticContext?.riskAssessment}，需在24小时内开启非正式面谈。\n2. **情绪缓冲**：考虑到${diagnosticContext?.interventionProgress}，建议引入第三方中立视角。`,
+          script: { opening: '“我们来聊聊这件事...”', responses: ['正在思考...'], closing: '“希望这能帮到您。”' },
+          redLines: []
+        } : topic.id === 'custom' ? {
+          truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
+          script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
+          redLines: ['正在划定红线...']
+        } : PRESCRIPTION_DATA[topic.id] || null}
+        experts={EXPERTS}
+        context={context}
+        diagnosticContext={diagnosticContext}
+        onNavigateToTopic={handleTopicClick}
+        onNavigateToPractice={(id) => {
+          setTargetTopicId(id);
+          navigate('/practice');
+        }}
+        onNavigateToDiagnosis={(id) => {
+          setTargetTopicId(id);
+          const topic = TOPICS.find(t => t.id === id);
+          if (topic) setPendingQuery(topic.title);
+          navigate('/diagnose-engine');
+        }}
+        onExpertClick={handleExpertClick}
+        onFollowUp={(q) => handleSearch(q, diagnosticContext)}
+        isGeneratingFeedback={isGeneratingFeedback}
+        onUpdateHistory={handleUpdateHistory}
+        initialChatHistory={history.find(h => h.id === activeHistoryId)?.chatHistory || []}
+        relatedTopics={
+          topic.relatedIds 
+            ? TOPICS.filter(t => topic.relatedIds?.includes(t.id))
+            : TOPICS.filter(t => t.id !== topic.id).slice(0, 3)
+        }
+      />
+    );
   };
 
   const ExpertCaseDetailWrapper = () => {
@@ -429,6 +507,7 @@ function AppContent() {
         setIsOpen={setIsSidebarOpen}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
+        setIsBriefingMode={setIsBriefingMode}
       />
 
       <main className="flex-1 flex flex-col relative h-full overflow-hidden">
@@ -449,399 +528,290 @@ function AppContent() {
 
         <div className="flex-1 overflow-y-auto pb-32">
           <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
-            
-            {view === 'home' && (
-              <div className="min-h-[calc(100vh-120px)] flex flex-col">
-                {!isBriefingMode ? (
-                  <div className="flex flex-col flex-1">
-                    
-                    {/* Hero Section - Centered Input */}
-                    <div className="flex-1 flex flex-col items-center justify-center py-8 md:py-12">
-                      <div className="text-center mb-8 animate-[fadeIn_0.8s_ease-out]">
-                        <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
-                          输入你的管理痛点，AI将为您自动匹配资深管理者的实战经验
-                        </h2>
-                        {renderEmergencyBulletin()}
+            <Routes>
+              <Route path="/" element={
+                <div className="min-h-[calc(100vh-120px)] flex flex-col">
+                  {!isBriefingMode ? (
+                    <div className="flex flex-col flex-1">
+                      {/* Hero Section - Centered Input */}
+                      <div className="flex-1 flex flex-col items-center justify-center py-8 md:py-12">
+                        <div className="text-center mb-8 animate-[fadeIn_0.8s_ease-out]">
+                          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
+                            输入你的管理痛点，AI将为您自动匹配资深管理者的实战经验
+                          </h2>
+                          {renderEmergencyBulletin()}
+                        </div>
+
+                        <div className="w-full max-w-3xl mx-auto px-4 animate-[slideUp_0.6s_ease-out]">
+                          <IntentionCapture 
+                            mode="new-search"
+                            onSearch={handleSearch} 
+                            onStartDiagnose={() => navigate('/diagnose-engine')}
+                          />
+                        </div>
                       </div>
 
-                      <div className="w-full max-w-3xl mx-auto px-4 animate-[slideUp_0.6s_ease-out]">
-                        <IntentionCapture 
-                          mode="new-search"
-                          onSearch={handleSearch} 
-                          onStartDiagnose={() => setView('diagnose-engine')}
+                      {/* Content Grid - Below Input */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12 animate-[fadeIn_1s_ease-out]">
+                        <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
+                          <div className="p-6 border-b border-black/5 flex items-center gap-3">
+                            <Flame className="w-5 h-5 text-orange-500 fill-orange-500" />
+                            <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">公司热点话题 TOP 10</h3>
+                          </div>
+                          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            {TOPICS.filter(t => t.isHot).map(topic => (
+                              <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-5 hover:bg-white/80 rounded-2xl flex items-center justify-between group transition-all duration-300">
+                                <span className="text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
+                                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#F2C94C] group-hover:translate-x-1" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
+                          <div className="p-6 border-b border-black/5 flex items-center gap-3">
+                            <Trophy className="w-5 h-5 text-[#F2C94C]" />
+                            <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">个人高频痛点 TOP 10</h3>
+                          </div>
+                          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            {TOPICS.filter(t => t.isTop10).map((topic, idx) => (
+                              <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-4 hover:bg-white/80 rounded-2xl flex items-center gap-6 group transition-all duration-300">
+                                <span className="text-sm font-black text-[#F2C94C]/60 group-hover:text-[#F2C94C] group-hover:scale-110 transition-all duration-300">
+                                  {(idx + 1).toString().padStart(2, '0')}
+                                </span>
+                                <span className="flex-1 text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <ExpertLeaderboard experts={experts} onExpertClick={handleExpertClick} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <button onClick={() => setIsBriefingMode(false)} className="flex items-center text-sm font-bold text-[#0A0F1D] hover:text-[#F2C94C] transition-colors">
+                        <ArrowRight className="w-4 h-4 mr-2 rotate-180" /> 返回搜索
+                      </button>
+                      {selectedTopic && (
+                        <TacticalBriefing 
+                          topic={selectedTopic}
+                          prescription={selectedTopic.id === 'custom' ? {
+                            truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
+                            script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
+                            redLines: ['正在划定红线...']
+                          } : PRESCRIPTION_DATA[selectedTopic.id] || null}
+                          experts={EXPERTS}
+                          context={context}
+                          onNavigateToTopic={handleTopicClick}
+                          onNavigateToPractice={(id) => {
+                            setTargetTopicId(id);
+                            navigate('/practice');
+                          }}
+                          onNavigateToDiagnosis={(id) => {
+                            setTargetTopicId(id);
+                            const topic = TOPICS.find(t => t.id === id);
+                            if (topic) setPendingQuery(topic.title);
+                            navigate('/diagnose-engine');
+                          }}
+                          onExpertClick={handleExpertClick}
+                          isGeneratingFeedback={isGeneratingFeedback}
                         />
-                      </div>
+                      )}
                     </div>
+                  )}
+                </div>
+              } />
 
-                    {/* Content Grid - Below Input */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12 animate-[fadeIn_1s_ease-out]">
-                      <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
-                        <div className="p-6 border-b border-black/5 flex items-center gap-3">
-                          <Flame className="w-5 h-5 text-orange-500 fill-orange-500" />
-                          <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">公司热点话题 TOP 10</h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                          {TOPICS.filter(t => t.isHot).map(topic => (
-                            <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-5 hover:bg-white/80 rounded-2xl flex items-center justify-between group transition-all duration-300">
-                              <span className="text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
-                              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#F2C94C] group-hover:translate-x-1" />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+              <Route path="/topic/:id" element={<TacticalBriefingWrapper />} />
+              
+              <Route path="/expert/:expertId/case/:caseId" element={<ExpertCaseDetailWrapper />} />
 
-                      <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
-                        <div className="p-6 border-b border-black/5 flex items-center gap-3">
-                          <Trophy className="w-5 h-5 text-[#F2C94C]" />
-                          <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">个人高频痛点 TOP 10</h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                          {TOPICS.filter(t => t.isTop10).map((topic, idx) => (
-                            <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-4 hover:bg-white/80 rounded-2xl flex items-center gap-6 group transition-all duration-300">
-                              <span className="text-sm font-black text-[#F2C94C]/60 group-hover:text-[#F2C94C] group-hover:scale-110 transition-all duration-300">
-                                {(idx + 1).toString().padStart(2, '0')}
-                              </span>
-                              <span className="flex-1 text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+              <Route path="/practice" element={
+                !selectedScenario ? (
+                  <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
+                    {(() => {
+                      if (targetTopicId && !selectedScenario) {
+                        const scenarioMap: Record<string, string> = {
+                          '1': '1', '3': 't2', '6': 't1', '7': 't3',
+                        };
+                        const scenarioId = scenarioMap[targetTopicId];
+                        if (scenarioId && SCENARIO_DATA[scenarioId]) {
+                          setTimeout(() => setSelectedScenario(SCENARIO_DATA[scenarioId]), 0);
+                          return null;
+                        }
+                      }
+                      return (
+                        <>
+                          <div className="flex flex-col gap-6">
+                            <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
+                            <div className="flex gap-6 border-b border-slate-100 pb-4">
+                              {['全部', '人才留存', '绩效管理', '跨部门沟通'].map(tab => (
+                                <button 
+                                  key={tab}
+                                  onClick={() => setActiveTab(tab)}
+                                  className={`text-sm transition-all ${activeTab === tab ? 'text-slate-900 font-medium' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                  {tab}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
 
-                      <ExpertLeaderboard experts={experts} onExpertClick={handleExpertClick} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <button onClick={() => setIsBriefingMode(false)} className="flex items-center text-sm font-bold text-[#0A0F1D] hover:text-[#F2C94C] transition-colors">
-                      <ArrowRight className="w-4 h-4 mr-2 rotate-180" /> 返回搜索
-                    </button>
-                    {selectedTopic && (
-                      <TacticalBriefing 
-                        topic={selectedTopic}
-                        prescription={selectedTopic.id === 'custom' ? {
-                          truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
-                          script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
-                          redLines: ['正在划定红线...']
-                        } : PRESCRIPTION_DATA[selectedTopic.id] || null}
-                        experts={EXPERTS}
-                        context={context}
-                        onNavigateToTopic={handleTopicClick}
-                        onNavigateToPractice={(id) => {
-                          setTargetTopicId(id);
-                          setView('practice');
-                        }}
-                        onNavigateToDiagnosis={(id) => {
-                          setTargetTopicId(id);
-                          const topic = TOPICS.find(t => t.id === id);
-                          if (topic) setPendingQuery(topic.title);
-                          setView('diagnose-engine');
-                        }}
-                        onExpertClick={handleExpertClick}
-                        isGeneratingFeedback={isGeneratingFeedback}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {view === 'topic-detail' && selectedTopic && (
-              <TacticalBriefing 
-                topic={selectedTopic} 
-                prescription={activePrescription || (selectedTopic.id === 'diagnostic-result' ? {
-                  truth: `### 研判真相：${diagnosticContext?.intentStage}\n\n**核心风险：** ${diagnosticContext?.riskAssessment}\n\n**干预进度：** ${diagnosticContext?.interventionProgress}\n\n**补充细节：** ${diagnosticContext?.details || '无'}\n\n--- \n\n基于您的团队处于 **${context.businessStage}** 且压力指数为 **${context.pressure}**，AI 管理能力提升助手建议：\n\n1. **立即对齐利益**：针对${diagnosticContext?.riskAssessment}，需在24小时内开启非正式面谈。\n2. **情绪缓冲**：考虑到${diagnosticContext?.interventionProgress}，建议引入第三方中立视角。`,
-                  script: { opening: '“我们来聊聊这件事...”', responses: ['正在思考...'], closing: '“希望这能帮到您。”' },
-                  redLines: []
-                } : selectedTopic.id === 'custom' ? {
-                  truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
-                  script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
-                  redLines: ['正在划定红线...']
-                } : PRESCRIPTION_DATA[selectedTopic.id] || null)} 
-                experts={EXPERTS}
-                context={context}
-                diagnosticContext={diagnosticContext}
-                onNavigateToTopic={handleTopicClick}
-                onNavigateToPractice={(id) => {
-                  setTargetTopicId(id);
-                  setView('practice');
-                }}
-                onNavigateToDiagnosis={(id) => {
-                  setTargetTopicId(id);
-                  const topic = TOPICS.find(t => t.id === id);
-                  if (topic) setPendingQuery(topic.title);
-                  setView('diagnose-engine');
-                }}
-                onExpertClick={handleExpertClick}
-                onFollowUp={(q) => handleSearch(q, diagnosticContext)}
-                isGeneratingFeedback={isGeneratingFeedback}
-                onUpdateHistory={handleUpdateHistory}
-                initialChatHistory={history.find(h => h.id === activeHistoryId)?.chatHistory || []}
-                relatedTopics={
-                  selectedTopic.relatedIds 
-                    ? TOPICS.filter(t => selectedTopic.relatedIds?.includes(t.id))
-                    : TOPICS.filter(t => t.id !== selectedTopic.id).slice(0, 3)
-                }
-              />
-            )}
-
-                    {view === 'practice' && !selectedScenario && (
-                      <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
-                        {(() => {
-                          // Auto-load scenario if targetTopicId is present
-                          if (targetTopicId && !selectedScenario) {
-                            const scenarioMap: Record<string, string> = {
-                              '1': '1',
-                              '3': 't2',
-                              '6': 't1',
-                              '7': 't3',
-                            };
-                            const scenarioId = scenarioMap[targetTopicId];
-                            if (scenarioId && SCENARIO_DATA[scenarioId]) {
-                              setTimeout(() => setSelectedScenario(SCENARIO_DATA[scenarioId]), 0);
-                              return null;
-                            }
-                          }
-                          return (
-                            <>
-                              <div className="flex flex-col gap-6">
-                                <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
-                                <div className="flex gap-6 border-b border-slate-100 pb-4">
-                                  {['全部', '人才留存', '绩效管理', '跨部门沟通'].map(tab => (
-                                    <button 
-                                      key={tab}
-                                      onClick={() => setActiveTab(tab)}
-                                      className={`text-sm transition-all ${activeTab === tab ? 'text-slate-900 font-medium' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                      {tab}
-                                    </button>
-                                  ))}
+                          <div className="grid grid-cols-1 gap-4">
+                            {Object.values(SCENARIO_DATA)
+                              .filter(scenario => {
+                                if (activeTab === '全部') return true;
+                                if (activeTab === '人才留存') return scenario.description.includes('离职') || scenario.description.includes('留存');
+                                if (activeTab === '绩效管理') return scenario.description.includes('绩效') || scenario.description.includes('目标');
+                                if (activeTab === '跨部门沟通') return scenario.description.includes('跨部门') || scenario.description.includes('协同');
+                                return true;
+                              })
+                              .slice(0, 3)
+                              .map((scenario) => (
+                              <div 
+                                key={scenario.id} 
+                                onClick={() => setSelectedScenario(scenario)}
+                                className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group cursor-pointer hover:border-slate-300 transition-all shadow-none"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className="px-2 py-1 bg-slate-50 text-slate-500 text-xs rounded-md">
+                                      {scenario.description.includes('离职') ? '人才留存' : scenario.description.includes('绩效') ? '绩效管理' : '常规管理'}
+                                    </span>
+                                  </div>
+                                  <h4 className="text-slate-900 text-base font-normal">
+                                    {scenario.description.split('】')[0].replace('【', '') || '常规管理任务'}
+                                  </h4>
+                                </div>
+                                <div className="px-6 py-2 border border-slate-200 rounded-full text-slate-600 text-sm group-hover:bg-slate-50 transition-all">
+                                  开始演练
                                 </div>
                               </div>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <SimulationEngine scenario={selectedScenario} onExit={() => setSelectedScenario(null)} />
+                )
+              } />
 
-                              <div className="grid grid-cols-1 gap-4">
-                                {Object.values(SCENARIO_DATA)
-                                  .filter(scenario => {
-                                    if (activeTab === '全部') return true;
-                                    if (activeTab === '人才留存') return scenario.description.includes('离职') || scenario.description.includes('留存');
-                                    if (activeTab === '绩效管理') return scenario.description.includes('绩效') || scenario.description.includes('目标');
-                                    if (activeTab === '跨部门沟通') return scenario.description.includes('跨部门') || scenario.description.includes('协同');
-                                    return true;
-                                  })
-                                  .slice(0, 3)
-                                  .map((scenario) => (
-                                  <div 
-                                    key={scenario.id} 
-                                    onClick={() => setSelectedScenario(scenario)}
-                                    className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group cursor-pointer hover:border-slate-300 transition-all shadow-none"
-                                  >
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <span className="px-2 py-1 bg-slate-50 text-slate-500 text-xs rounded-md">
-                                          {scenario.description.includes('离职') ? '人才留存' : scenario.description.includes('绩效') ? '绩效管理' : '常规管理'}
-                                        </span>
-                                      </div>
-                                      <h4 className="text-slate-900 text-base font-normal">
-                                        {scenario.description.split('】')[0].replace('【', '') || '常规管理任务'}
-                                      </h4>
-                                    </div>
-                                    <div className="px-6 py-2 border border-slate-200 rounded-full text-slate-600 text-sm group-hover:bg-slate-50 transition-all">
-                                      开始演练
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          );
-                        })()}
+              <Route path="/diagnose-start" element={
+                <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[80vh]">
+                  <div className="max-w-4xl w-full space-y-16">
+                    <div className="text-center space-y-6">
+                      <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#F2C94C]/10 border border-[#F2C94C]/30 rounded-full text-[#F2C94C] text-[10px] font-black uppercase tracking-widest">
+                        <Activity className="w-3 h-3" /> 实战研判中心
                       </div>
-                    )}
-
-            {view === 'practice' && selectedScenario && (
-              <SimulationEngine scenario={selectedScenario} onExit={() => setSelectedScenario(null)} />
-            )}
-
-            {view === 'diagnose-consent' && (
-              <DiagnoseConsent 
-                pendingQuery={pendingQuery}
-                onSelectStandard={() => {
-                  // Skip diagnosis, go straight to detail
-                  const topic: Topic = selectedTopic || { 
-                    id: 'search-result', 
-                    title: pendingQuery, 
-                    type: '战友最痛' 
-                  };
-                  setSelectedTopic(topic);
-                  setDiagnosticContext(null); // Clear previous context
-                  
-                  // Auto-archive
-                  const newHistoryId = Date.now().toString();
-                  setActiveHistoryId(newHistoryId);
-                  setHistory(prev => [{
-                    id: newHistoryId,
-                    query: pendingQuery,
-                    aiResponse: '常规诊断报告已生成',
-                    timestamp: Date.now(),
-                    context: { ...context },
-                    topicId: topic.id === 'search-result' ? undefined : topic.id
-                  }, ...prev]);
-                  
-                  setView('topic-detail');
-                }}
-                onSelectDeep={() => {
-                  setView('diagnose-engine');
-                }}
-              />
-            )}
-
-            {view === 'diagnose-engine' && (
-              <div className="max-w-4xl mx-auto py-10">
-                <div className="text-center mb-10">
-                  <h2 className="text-3xl font-black text-[#0A0F1D] mb-4">深度管理研判：多维透视</h2>
-                  <p className="text-gray-500">针对复杂管理场景，我们需要更精准的团队画像以提供实战建议</p>
-                </div>
-                <DiagnoseEngine 
-                  mode="problem"
-                  query={pendingQuery}
-                  targetTopicId={targetTopicId || undefined}
-                  initialContext={context}
-                  onComplete={(diagnostic) => {
-                    setDiagnosticContext(diagnostic);
-                    setContext(diagnostic.teamContext);
-                    
-                    // Create a custom topic for the diagnostic result
-                    const topic: Topic = selectedTopic || { 
-                      id: 'diagnostic-result', 
-                      title: `针对【${pendingQuery}】的研判报告`, 
-                      type: '战友最痛' 
-                    };
-                    setSelectedTopic(topic);
-                    
-                    const prescription: Prescription = {
-                      truth: `### 研判真相：${pendingQuery}\n\n**研判维度：** ${diagnostic.questionSet === 'talent' ? '人才保留' : diagnostic.questionSet === 'execution' ? '执行力穿透' : '基础组织画像'}\n\n**核心发现：** ${Object.values(diagnostic).filter(v => typeof v === 'string' && v.length > 0).join(' | ')}\n\n--- \n\n基于您的团队画像，AI 管理能力提升助手建议：\n\n1. **精准打击**：针对研判出的核心问题，立即启动专项对齐。\n2. **工具赋能**：引入匹配当前阶段的管理工具。`,
-                      summary: `当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。`,
-                      script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
-                      redLines: ['正在划定红线...']
-                    };
-                    setActivePrescription(prescription);
-
-                    // Auto-archive
-                    const newHistoryId = Date.now().toString();
-                    setActiveHistoryId(newHistoryId);
-                    const historyItem: HistoryItem = {
-                      id: newHistoryId,
-                      query: `针对【${pendingQuery}】的研判报告`,
-                      aiResponse: '研判报告已生成',
-                      timestamp: Date.now(),
-                      context: { ...diagnostic.teamContext },
-                      isDeepDiagnosis: true,
-                      diagnosticContext: diagnostic,
-                      prescription
-                    };
-                    setHistory(prev => [historyItem, ...prev]);
-                    
-                    // Persist to localStorage
-                    const savedHistory = JSON.parse(localStorage.getItem('management_history') || '[]');
-                    localStorage.setItem('management_history', JSON.stringify([historyItem, ...savedHistory]));
-                    
-                    setView('topic-detail');
-                    setTargetTopicId(null);
-                  }} 
-                />
-              </div>
-            )}
-
-            {view === 'diagnose-start' && (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[80vh]">
-                <div className="max-w-4xl w-full space-y-16">
-                  <div className="text-center space-y-6">
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#F2C94C]/10 border border-[#F2C94C]/30 rounded-full text-[#F2C94C] text-[10px] font-black uppercase tracking-widest">
-                      <Activity className="w-3 h-3" /> 实战研判中心
+                      <h1 className="text-5xl font-black text-[#0A0F1D] tracking-tight">描述您的管理卡点</h1>
+                      <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed">
+                        【问一问】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
+                      </p>
                     </div>
-                    <h1 className="text-5xl font-black text-[#0A0F1D] tracking-tight">描述您的管理卡点</h1>
-                    <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed">
-                      【问一问】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
-                    </p>
-                  </div>
-                  
-                  <div className="relative">
-                    <IntentionCapture 
-                      mode="new-search"
-                      variant="command"
-                      onSearch={(q) => {
-                        setPendingQuery(q);
-                        setView('diagnose-engine');
-                      }} 
-                      onStartDiagnose={() => setView('diagnose-engine')}
-                    />
-                  </div>
+                    
+                    <div className="relative">
+                      <IntentionCapture 
+                        mode="new-search"
+                        variant="command"
+                        onSearch={(q) => {
+                          setPendingQuery(q);
+                          navigate('/diagnose-engine');
+                        }} 
+                        onStartDiagnose={() => navigate('/diagnose-engine')}
+                      />
+                    </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
-                    {[
-                      { title: '团队执行力差', desc: '指令下达后，结果总是打折扣' },
-                      { title: '核心骨干流失', desc: '关键人才突然提出离职，如何挽留' },
-                      { title: '跨部门协作难', desc: '资源协调不动，推进受阻' }
-                    ].map((item, i) => (
-                      <motion.div 
-                        key={i} 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        onClick={() => {
-                          setPendingQuery(item.title);
-                          setView('diagnose-engine');
-                        }}
-                        className="p-6 bg-white border border-gray-100 rounded-2xl hover:border-[#F2C94C] hover:shadow-xl hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group"
-                      >
-                        <h4 className="font-bold text-[#0A0F1D] mb-2 group-hover:text-[#F2C94C]">{item.title}</h4>
-                        <p className="text-xs text-gray-400">{item.desc}</p>
-                      </motion.div>
-                    ))}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
+                      {[
+                        { title: '团队执行力差', desc: '指令下达后，结果总是打折扣' },
+                        { title: '核心骨干流失', desc: '关键人才突然提出离职，如何挽留' },
+                        { title: '跨部门协作难', desc: '资源协调不动，推进受阻' }
+                      ].map((item, i) => (
+                        <motion.div 
+                          key={i} 
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.1 }}
+                          onClick={() => {
+                            setPendingQuery(item.title);
+                            navigate('/diagnose-engine');
+                          }}
+                          className="p-6 bg-white border border-gray-100 rounded-2xl hover:border-[#F2C94C] hover:shadow-xl hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group"
+                        >
+                          <h4 className="font-bold text-[#0A0F1D] mb-2 group-hover:text-[#F2C94C]">{item.title}</h4>
+                          <p className="text-xs text-gray-400">{item.desc}</p>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              } />
 
-            {view === 'history' && (
-              <HistoryView 
-                history={history} 
-                bookmarks={(userStats.bookmarks || []).map(id => EXPERT_CASES[id]).filter(Boolean)}
-                onReloadChat={handleReloadChat}
-                onNavigate={handleHistoryNavigate}
-              />
-            )}
+              <Route path="/diagnose-engine" element={
+                <div className="max-w-4xl mx-auto py-10">
+                  <div className="text-center mb-10">
+                    <h2 className="text-3xl font-black text-[#0A0F1D] mb-4">深度管理研判：多维透视</h2>
+                    <p className="text-gray-500">针对复杂管理场景，我们需要更精准的团队画像以提供实战建议</p>
+                  </div>
+                  <DiagnoseEngine 
+                    mode="problem"
+                    query={pendingQuery}
+                    targetTopicId={targetTopicId || undefined}
+                    initialContext={context}
+                    onComplete={handleDiagnosisComplete} 
+                  />
+                </div>
+              } />
 
-            {view === 'expert-profile' && selectedExpert && (
-              <ExpertProfileView 
-                expert={selectedExpert}
-                topics={TOPICS}
-                onClose={() => handleSetView('home')}
-                onBookExpert={handleBookConsultant}
-                onTopicClick={handleTopicClick}
-              />
-            )}
+              <Route path="/history" element={
+                <HistoryView 
+                  history={history} 
+                  onNavigate={(v, item) => {
+                    handleHistoryNavigate(v, item);
+                    if (v === 'topic-detail' && item.topicId) {
+                      navigate(`/topic/${item.topicId}`);
+                    } else if (v === 'topic-detail') {
+                      navigate(`/topic/custom`);
+                    }
+                  }}
+                  bookmarks={userStats.bookmarks || []}
+                />
+              } />
 
-            {view === 'case-detail' && selectedCase && (
-              <ExpertCaseDetail 
-                expertCase={selectedCase} 
-                onClose={() => handleSetView('home')} 
-                onTrackInteraction={(type) => handleTrackInteraction(selectedCase.id, type)}
-                initialIsBookmarked={userStats.bookmarks?.includes(selectedCase.id)}
-                initialIsLiked={userStats.likes?.includes(selectedCase.id)}
-              />
-            )}
+              <Route path="/expert-profile" element={
+                selectedExpert && (
+                  <ExpertProfileView 
+                    expert={selectedExpert} 
+                    onBack={() => navigate('/')} 
+                    onBook={() => handleBookConsultant(selectedExpert.id)}
+                    onViewCase={handleViewCase}
+                  />
+                )
+              } />
 
+              <Route path="/expert/:expertId" element={
+                <ExpertProfileViewWrapper 
+                  experts={experts}
+                  onBook={handleBookConsultant}
+                  onViewCase={handleViewCase}
+                />
+              } />
+            </Routes>
           </div>
         </div>
 
         {/* Global Bottom Input Bar - Hidden in Home View now as it's centered */}
-        {view === 'home' && isBriefingMode && (
+        {isBriefingMode && (
           <div className="absolute bottom-0 left-0 right-0 z-20 p-6 pointer-events-none">
             <div className="max-w-4xl mx-auto pointer-events-auto">
               <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-slate-200 p-2 shadow-2xl">
                 <IntentionCapture 
                   mode="new-search"
                   onSearch={handleSearch} 
-                  onStartDiagnose={() => setView('diagnose-engine')}
+                  onStartDiagnose={() => navigate('/diagnose-engine')}
                 />
               </div>
             </div>

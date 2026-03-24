@@ -2,6 +2,8 @@ import React from 'react';
 import { AppView, ProfileContext, UserStats } from '../types';
 import { BookOpen, Target, Activity, History, LogOut, X, Users, LayoutGrid } from 'lucide-react';
 
+import { useNavigate } from 'react-router-dom';
+
 interface SidebarProps {
   activeView: string;
   onNavigate: (view: AppView) => void;
@@ -14,22 +16,28 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  setIsBriefingMode: (mode: boolean) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  activeView, onNavigate, context, userStats, showProfilePopup, setShowProfilePopup, onLogout, isOpen, setIsOpen, isCollapsed, setIsCollapsed
+  activeView, onNavigate, context, userStats, showProfilePopup, setShowProfilePopup, onLogout, isOpen, setIsOpen, isCollapsed, setIsCollapsed, setIsBriefingMode
 }) => {
+  const navigate = useNavigate();
   const menuItems = [
-    { id: 'home', icon: BookOpen, label: '问一问', subLabel: '学习标杆实践' },
-    { id: 'practice', icon: Target, label: '练一练', subLabel: '情景模拟练习' },
-    { id: 'diagnose-start', icon: Activity, label: '聊一聊', subLabel: '深度智能诊断' },
-    { id: 'history', icon: History, label: '历史记录', subLabel: '指挥官档案库' },
+    { id: 'home', icon: BookOpen, label: '问一问', subLabel: '学习标杆实践', path: '/' },
+    { id: 'practice', icon: Target, label: '练一练', subLabel: '情景模拟练习', path: '/practice' },
+    { id: 'diagnose-start', icon: Activity, label: '聊一聊', subLabel: '深度智能诊断', path: '/diagnose-start' },
+    { id: 'history', icon: History, label: '历史记录', subLabel: '指挥官档案库', path: '/history' },
   ];
 
   return (
     <aside className={`fixed md:static inset-y-0 left-0 z-50 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64 lg:w-72'} bg-white text-slate-900 flex flex-col border-r border-slate-200 overflow-hidden`}>
       <div className={`p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-slate-100 h-14`}>
-        <div className="flex items-center space-x-3 cursor-pointer overflow-hidden" onClick={() => onNavigate('home')}>
+        <div className="flex items-center space-x-3 cursor-pointer overflow-hidden" onClick={() => {
+          navigate('/');
+          setIsBriefingMode(false);
+          onNavigate('home');
+        }}>
           <div className="w-8 h-8 bg-[#F2C94C] rounded flex-shrink-0 flex items-center justify-center">
             <LayoutGrid className="w-5 h-5 text-white" />
           </div>
@@ -42,7 +50,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => { onNavigate(item.id as AppView); setIsOpen(false); }}
+            onClick={() => { 
+              navigate(item.path);
+              setIsBriefingMode(false);
+              onNavigate(item.id as AppView); 
+              setIsOpen(false); 
+            }}
             className={`w-full flex items-center p-3 rounded-xl transition-all ${activeView === item.id ? 'bg-[#F2C94C] text-white font-bold shadow-md' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'} ${isCollapsed ? 'justify-center' : ''}`}
             title={isCollapsed ? item.label : ''}
           >

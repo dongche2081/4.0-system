@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Expert, Topic } from '../types';
+import { EXPERT_CASES } from '../data';
 import { ChevronLeft, Quote, BookOpen, MessageSquare, Star, ArrowRight, Video, Play, Headphones, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface ExpertProfileViewProps {
   expert: Expert;
-  topics: Topic[];
-  onClose: () => void;
-  onBookExpert: (expertId: string) => void;
-  onTopicClick: (topic: Topic) => void;
+  onBack: () => void;
+  onBook: () => void;
+  onViewCase: (caseId: string) => void;
 }
 
 export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
   expert,
-  topics,
-  onClose,
-  onBookExpert,
-  onTopicClick
+  onBack,
+  onBook,
+  onViewCase
 }) => {
-  const contributedTopics = topics.filter(t => expert.topics.includes(t.id));
+  // Get cases for this expert
+  const expertCases = Object.values(EXPERT_CASES).filter(c => c.expertId === expert.id);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('人才留存');
@@ -52,7 +52,7 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
         <div className="absolute inset-0 flex items-end px-12 pb-12">
           <div className="flex items-center gap-8 max-w-5xl mx-auto w-full">
             <button 
-              onClick={onClose}
+              onClick={onBack}
               className="absolute top-8 left-8 p-2 bg-white hover:bg-slate-50 rounded-full transition-colors border border-slate-200 shadow-sm"
             >
               <ChevronLeft className="w-6 h-6 text-slate-600" />
@@ -113,23 +113,23 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
           <section>
             <h2 className="text-sm uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
               <Star className="w-4 h-4" />
-              实战建议集
+              实战案例集
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              {contributedTopics.map(topic => (
+              {expertCases.map(caseItem => (
                 <div 
-                  key={topic.id}
-                  onClick={() => onTopicClick(topic)}
+                  key={caseItem.id}
+                  onClick={() => onViewCase(caseItem.id)}
                   className="p-6 bg-white border border-slate-100 rounded-3xl hover:border-[#F2C94C]/30 hover:bg-slate-50 transition-all cursor-pointer group shadow-sm"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] uppercase tracking-widest text-[#F2C94C] opacity-80">
-                      {topic.type}
+                      实战案例
                     </span>
                     <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#F2C94C] transition-colors" />
                   </div>
                   <h3 className="text-lg font-medium text-slate-800 group-hover:text-[#F2C94C] transition-colors">
-                    {topic.title}
+                    {caseItem.title}
                   </h3>
                 </div>
               ))}
