@@ -69,6 +69,8 @@ export interface ExpertCase {
   background?: string;
   difficulty?: string;
   expertInsight?: string;
+  videoUrl?: string;
+  audioUrl?: string;
   expertProfile: {
     id: string;
     name: string;
@@ -127,6 +129,8 @@ export interface SimulationScenario {
   id: string;
   description: string;
   options: SimulationOption[];
+  practiceCount?: number;    // 练习人数
+  accuracyRate?: number;     // 平均正确率 (0-100)
 }
 
 export interface DiagnosticContext {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Volume2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
@@ -38,18 +38,20 @@ export const DigestCard: React.FC<Props> = ({
     };
   }, []);
 
-  // Validation logic: 180-220 characters
+  // Validation logic: 300 characters max per PRD
   const charCount = content.length;
-  const isValidLength = charCount >= 180 && charCount <= 220;
+  const isValidLength = charCount <= 300;
   
-  if (!isValidLength) {
-    console.warn(`AI Digest content length (${charCount}) is outside the recommended 180-220 range.`);
+  // Debug warning for development
+  if (process.env.NODE_ENV === 'development' && !isValidLength) {
+    console.warn(`[DigestCard] Content length (${charCount}) exceeds PRD limit (300 chars max).`);
   }
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isPlaying) {
       const utterance = new SpeechSynthesisUtterance(content);
+      utterance.lang = 'zh-CN';
       utterance.onend = () => setIsPlaying(false);
       utterance.onerror = () => setIsPlaying(false);
       window.speechSynthesis.cancel();
@@ -62,27 +64,37 @@ export const DigestCard: React.FC<Props> = ({
   };
 
   return (
-    <div className="relative bg-white rounded-[32px] p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 mb-8 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-      {/* Hanging Label */}
+    <div className="relative bg-white rounded-3xl p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 mb-8 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+      {/* Hanging Label - PRD: 左上角悬挂金色"AI 实战建议"标签 */}
       <div className="absolute -top-3 left-8 bg-[#F2C94C] text-[#0A0F1D] text-[10px] font-black px-4 py-1.5 rounded-full shadow-sm tracking-widest uppercase">
         AI 实战建议
       </div>
 
-      {/* TTS Trigger */}
+      {/* TTS Trigger - PRD: 右上角小喇叭图标 */}
       <button 
         onClick={togglePlay}
         className="absolute top-6 right-8 p-2 rounded-full hover:bg-slate-50 transition-colors group"
         title={isPlaying ? "停止播报" : "语音播报"}
       >
         {isPlaying ? (
+          // Playing state: golden waveform animation
           <Waveform />
         ) : (
+          // Static state: outline speaker icon
           <Volume2 className="w-5 h-5 text-slate-300 group-hover:text-[#F2C94C] transition-colors" />
         )}
       </button>
 
       {/* Content Area */}
       <div className="mt-4">
+        {/* Character count warning for content managers (dev mode only) */}
+        {process.env.NODE_ENV === 'development' && !isValidLength && (
+          <div className="mb-3 flex items-center gap-2 text-amber-500 text-[10px]">
+            <AlertCircle className="w-3 h-3" />
+            <span>字数 {charCount}，PRD 要求 300 字以内</span>
+          </div>
+        )}
+
         <motion.div
           initial={false}
           animate={{ height: isExpanded ? "auto" : "4.5rem" }} // Roughly 3 lines
@@ -98,7 +110,7 @@ export const DigestCard: React.FC<Props> = ({
           )}
         </motion.div>
 
-        {/* Expand/Collapse Button */}
+        {/* Expand/Collapse Button - PRD: 底部居中"展开全部内容" */}
         <div className="mt-4 flex justify-center">
           <button
             onClick={() => setIsExpanded(!isExpanded)}

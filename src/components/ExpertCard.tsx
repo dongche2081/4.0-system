@@ -20,8 +20,8 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({ expert, topicId }) => {
   };
 
   return (
-    <div className="bg-white border border-slate-100 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all flex items-center gap-4 group hover:border-[#F2C94C]/30">
-      {/* Left: Avatar */}
+    <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-5 group hover:border-[#F2C94C]/30">
+      {/* Left: Avatar - 80px per PRD */}
       <div 
         className="flex-shrink-0 cursor-pointer"
         onClick={() => handleNavigate()}
@@ -34,7 +34,7 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({ expert, topicId }) => {
         />
       </div>
 
-      {/* Middle: Info */}
+      {/* Middle: Info - BG/岗位/姓名 */}
       <div className="flex-grow min-w-0">
         <div className="text-[10px] font-bold text-[#F2C94C] uppercase tracking-wider mb-0.5 truncate">
           {expert.resume?.[0] || '事业部'}
@@ -47,28 +47,28 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({ expert, topicId }) => {
         </div>
       </div>
 
-      {/* Right: Media Icons */}
-      <div className="flex flex-col gap-2">
+      {/* Right: Triple Media Icons (Video/Audio/Text) */}
+      <div className="flex items-center gap-2">
         <button 
           onClick={(e) => { e.stopPropagation(); handleNavigate('video'); }}
-          className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+          className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
           title="视频播放"
         >
           <Video className="w-4 h-4" />
         </button>
         <button 
-          onClick={(e) => { e.stopPropagation(); handleNavigate('text'); }}
-          className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
-          title="图文阅读"
-        >
-          <FileText className="w-4 h-4" />
-        </button>
-        <button 
           onClick={(e) => { e.stopPropagation(); handleNavigate('audio'); }}
-          className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+          className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
           title="音频听取"
         >
           <Headphones className="w-4 h-4" />
+        </button>
+        <button 
+          onClick={(e) => { e.stopPropagation(); handleNavigate('text'); }}
+          className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+          title="图文阅读"
+        >
+          <FileText className="w-4 h-4" />
         </button>
       </div>
     </div>

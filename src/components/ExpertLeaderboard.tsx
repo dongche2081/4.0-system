@@ -1,8 +1,16 @@
 import React from 'react';
 import { Expert } from '../types';
-import { Award, Zap } from 'lucide-react';
+import { Award } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const ExpertLeaderboard: React.FC<{ experts: Expert[], onExpertClick: (e: Expert) => void }> = ({ experts, onExpertClick }) => {
+  const navigate = useNavigate();
+
+  const handleExpertClick = (expert: Expert) => {
+    navigate(`/expert/${expert.id}`);
+    onExpertClick?.(expert);
+  };
+
   return (
     <div className="bg-white rounded-[32px] border border-slate-200 flex flex-col h-full overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-lg transition-all duration-300">
       <div className="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -14,7 +22,7 @@ export const ExpertLeaderboard: React.FC<{ experts: Expert[], onExpertClick: (e:
         {experts.map((expert, idx) => (
           <div 
             key={expert.id} 
-            onClick={() => onExpertClick(expert)}
+            onClick={() => handleExpertClick(expert)}
             className="group flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 cursor-pointer transition-all duration-300"
           >
             <div className="relative">
@@ -26,8 +34,8 @@ export const ExpertLeaderboard: React.FC<{ experts: Expert[], onExpertClick: (e:
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold text-slate-900 truncate group-hover:text-[#F2C94C] transition-colors duration-300">{expert.name}</div>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-[10px] text-[#F2C94C] flex items-center gap-1 group-hover:text-[#F2C94C] transition-colors duration-300"><Zap className="w-3 h-3 text-[#F2C94C]" /> {expert.points} 战力</span>
-                <span className="text-[10px] text-slate-400">{expert.contentCount} 情报</span>
+                <span className="text-[10px] text-[#F2C94C] font-bold">{expert.points.toLocaleString()}积分</span>
+                <span className="text-[10px] text-slate-400">{expert.stats.prescriptions}次贡献</span>
               </div>
             </div>
           </div>

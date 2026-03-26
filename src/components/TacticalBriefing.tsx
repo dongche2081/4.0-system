@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Topic, Prescription, Expert, DiagnosticContext, ChatMessage } from '../types';
-import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check } from 'lucide-react';
+import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check, ChevronUp, ChevronDown } from 'lucide-react';
 import { RichText } from './RichText';
 import { DigestCard } from './DigestCard';
 import { motion, AnimatePresence } from 'motion/react';
@@ -36,6 +37,7 @@ export const TacticalBriefing: React.FC<Props> = ({
   isGeneratingFeedback,
   relatedTopics = []
 }) => {
+  const navigate = useNavigate();
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [activeModal, setActiveModal] = useState<'document' | 'audio' | 'video' | null>(null);
   const [activeExpertForModal, setActiveExpertForModal] = useState<Expert | null>(null);
@@ -49,6 +51,50 @@ export const TacticalBriefing: React.FC<Props> = ({
   const [toast, setToast] = useState<string | null>(null);
   
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // AI 实战建议内容组件 - 可展开折叠
+  const AIInsightContent = () => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    
+    const content = topic.caseStudy || "某互联网大厂主管发现团队进度总是'前松后紧'。他取消了周报，改为'日清看板'：每日下班前，成员需在大群同步'今日核心交付'与'明日卡点预判'。主管不再问'为什么慢'，而是问'我能支持你什么'。通过颗粒度对齐和即时赋能，团队从'推一下动一下'转变为'自驱动冲刺'，项目交付率在双月内提升了 35%。随后，他将这一机制推广至全部门，并建立了'问题升级通道'，确保基层员工的卡点能在 2 小时内得到响应。三个月后，团队不仅提前完成了季度目标，还沉淀出一套可复用的'敏捷管理手册'，成为公司内部的标杆案例。";
+    
+    return (
+      <div className="relative">
+        {/* AI 实战建议小标签 - 放在内容区域内左上角 */}
+        <div className="inline-flex items-center bg-[#F2C94C] text-[#0A0F1D] text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase mb-4">
+          AI 实战建议
+        </div>
+        
+        {/* 可折叠内容 */}
+        <div className="text-slate-800 leading-loose text-base">
+          <div className={`relative overflow-hidden ${!isExpanded ? 'max-h-[3.6rem]' : ''}`}>
+            <p className="text-slate-800 leading-relaxed">
+              {content}
+            </p>
+            {!isExpanded && (
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+            )}
+          </div>
+          
+          {/* 展开按钮 */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-[#F2C94C] transition-colors group"
+          >
+            {isExpanded ? (
+              <>
+                收起内容 <ChevronUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
+              </>
+            ) : (
+              <>
+                点此展开查看详细 <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const matchedExperts = experts.filter(e => e.topics.includes(topic.id) || e.topics.includes(topic.title));
   const expertResources = matchedExperts.length > 0 ? matchedExperts.slice(0, 3) : experts.slice(0, 3);
@@ -110,32 +156,17 @@ export const TacticalBriefing: React.FC<Props> = ({
           )}
 
           <div className="space-y-6">
-            {/* 实战事例合并展示 */}
-            {topic.caseStudy && (
-              <div className="pb-6 border-b border-slate-100">
-                <div className="text-[10px] font-black text-[#F2C94C] uppercase tracking-[0.2em] mb-3">典型实战场景</div>
-                <div className="text-slate-800 leading-loose text-base italic font-medium">
-                  “{topic.caseStudy}”
-                </div>
-              </div>
-            )}
-
-            <div 
-              ref={contentRef}
-              className="text-slate-800 leading-[1.8] text-base"
-            >
-              <div className="text-[10px] font-black text-[#F2C94C] uppercase tracking-[0.2em] mb-3">深度战术解析</div>
-              <RichText text={prescription?.truth || '正在生成深度解析...'} />
-            </div>
+            {/* AI 实战建议内容 - 可展开折叠 */}
+            <AIInsightContent />
           </div>
         </div>
 
         {/* 互动反馈系统 (紧贴容器下方) */}
         <div className="flex flex-wrap items-center justify-between gap-4 px-2">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={handleLike}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 ${liked ? 'bg-[#F2C94C] text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 ${liked ? 'bg-[#D4AF37] text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
             >
               <ThumbsUp className={`w-4 h-4 ${liked ? 'fill-white' : ''}`} />
               <span className="text-xs font-bold">{liked ? '感谢反馈' : '赞同'}</span>
@@ -158,52 +189,64 @@ export const TacticalBriefing: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* B. 参考来源 (原专家矩阵) */}
+        {/* B. 参考来源 (专家矩阵 - PRD规范：纵向平铺3-4名) */}
         {expertResources.length > 0 && (
           <div className="mt-12 space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-1 h-3 bg-[#F2C94C]/50 rounded-full"></div>
               <h3 className="text-[9px] font-black text-slate-400 tracking-widest uppercase">参考来源</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {expertResources.map(expert => (
-                <div 
+            <div className="space-y-3">
+              {expertResources.slice(0, 4).map(expert => (
+                <div
                   key={expert.id}
-                  onClick={() => onExpertClick?.(expert)}
-                  className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center group cursor-pointer hover:scale-[1.02] hover:border-[#F2C94C]/30"
+                  className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-5 group hover:border-[#F2C94C]/30"
                 >
-                  <div className="relative mb-4">
-                    <img 
-                      src={expert.avatar} 
-                      className="w-14 h-14 rounded-3xl object-cover border-2 border-transparent group-hover:border-[#F2C94C] transition-all" 
-                      alt={expert.name} 
+                  {/* Left: Avatar - 80px per PRD */}
+                  <div
+                    className="flex-shrink-0 cursor-pointer"
+                    onClick={() => navigate(`/expert/${expert.id}`)}
+                  >
+                    <img
+                      src={expert.avatar}
+                      className="w-20 h-20 rounded-full object-cover border-2 border-transparent group-hover:border-[#F2C94C] transition-all"
+                      alt={expert.name}
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#F2C94C] rounded-full flex items-center justify-center border-2 border-white">
-                      <Star className="w-2.5 h-2.5 text-white fill-white" />
+                  </div>
+
+                  {/* Middle: Info - 姓名/公司岗位头衔 */}
+                  <div className="flex-grow min-w-0">
+                    <div className="text-base font-black text-slate-900 truncate mb-1">
+                      {expert.name}
+                    </div>
+                    <div className="text-xs text-slate-400 font-bold truncate">
+                      {expert.title}
                     </div>
                   </div>
-                  <h4 className="text-sm font-black text-slate-900 mb-1">{expert.name}</h4>
-                  <p className="text-[9px] text-slate-400 font-bold mb-4 line-clamp-1">{expert.title}</p>
-                  
+
+                  {/* Right: Triple Media Icons (Video/Audio/Text) */}
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); openModal(expert, 'document'); }}
-                      className="p-2 bg-slate-50 rounded-lg text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/expert/${expert.id}/case/c1?type=video`); }}
+                      className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+                      title="视频播放"
                     >
-                      <FileText className="w-3.5 h-3.5" />
+                      <Video className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); openModal(expert, 'audio'); }}
-                      className="p-2 bg-slate-50 rounded-lg text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/expert/${expert.id}/case/c1?type=audio`); }}
+                      className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+                      title="音频听取"
                     >
-                      <Headphones className="w-3.5 h-3.5" />
+                      <Headphones className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); openModal(expert, 'video'); }}
-                      className="p-2 bg-slate-50 rounded-lg text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/expert/${expert.id}/case/c1?type=text`); }}
+                      className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:bg-[#F2C94C]/10 hover:text-[#F2C94C] transition-all"
+                      title="图文阅读"
                     >
-                      <Video className="w-3.5 h-3.5" />
+                      <FileText className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -514,7 +557,7 @@ export const TacticalBriefing: React.FC<Props> = ({
               <h3 className="text-xl font-black text-slate-900 mb-6 pr-8">指挥官，哪部分内容不符合您的预期？</h3>
               
               <div className="space-y-3 mb-6">
-                {['内容太泛，不落地', '逻辑有误，不符合实际', '话术生硬，没法直接用', '建议存在管理风险'].map(option => (
+                {['建议话术不接地气 (感觉在讲大道理)', '管理动作生硬：话术不符合真实场景', '逻辑有误：前后矛盾', '有管理风险：建议的做法可能导致更严重的冲突'].map(option => (
                   <button 
                     key={option}
                     onClick={() => toggleDislikeOption(option)}
@@ -528,11 +571,11 @@ export const TacticalBriefing: React.FC<Props> = ({
                 ))}
               </div>
 
-              <textarea 
+              <textarea
                 value={dislikeText}
                 onChange={(e) => setDislikeText(e.target.value)}
-                placeholder="请详细吐槽或给出改进建议，AI 管理能力提升助手将针对性优化..."
-                className="w-full h-32 bg-slate-50 border border-slate-100 rounded-3xl p-4 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-[#F2C94C]/30 transition-all mb-6 resize-none"
+                placeholder="请告诉我们哪里不对，我们会立即修正"
+                className="w-full h-32 border border-slate-200 rounded-lg p-3 text-sm text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] outline-none transition-all mb-6 resize-none"
               />
 
               <button 
@@ -576,48 +619,53 @@ export const TacticalBriefing: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-[#F2C94C] uppercase tracking-widest ml-1">案例标题</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={contributionForm.title}
                     onChange={(e) => setContributionForm({...contributionForm, title: e.target.value})}
                     placeholder="例如：某大厂裁员风波中的人心维稳"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-3xl px-5 py-4 text-sm text-slate-900 focus:outline-none focus:border-[#F2C94C]/30 transition-all"
+                    className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-[#F2C94C] uppercase tracking-widest ml-1">个人头衔</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={contributionForm.expertTitle}
                     onChange={(e) => setContributionForm({...contributionForm, expertTitle: e.target.value})}
                     placeholder="例如：前阿里P9 / 资深组织专家"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-3xl px-5 py-4 text-sm text-slate-900 focus:outline-none focus:border-[#F2C94C]/30 transition-all"
+                    className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] outline-none transition-all"
                   />
                 </div>
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-black text-[#F2C94C] uppercase tracking-widest ml-1">场景描述</label>
-                  <textarea 
+                  <label className="text-[10px] font-black text-[#F2C94C] uppercase tracking-widest ml-1">实战场景描述 <span className="text-red-400">*</span></label>
+                  <textarea
                     value={contributionForm.scenario}
                     onChange={(e) => setContributionForm({...contributionForm, scenario: e.target.value})}
                     placeholder="请描述具体的实战背景、矛盾冲突点..."
-                    className="w-full h-24 bg-slate-50 border border-slate-100 rounded-3xl p-5 text-sm text-slate-900 focus:outline-none focus:border-[#F2C94C]/30 transition-all resize-none"
+                    className="w-full h-24 border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] outline-none transition-all resize-none"
                   />
                 </div>
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-black text-[#F2C94C] uppercase tracking-widest ml-1">核心动作</label>
-                  <textarea 
+                  <label className="text-[10px] font-black text-[#F2C94C] uppercase tracking-widest ml-1">核心管理动作 <span className="text-red-400">*</span></label>
+                  <textarea
                     value={contributionForm.action}
                     onChange={(e) => setContributionForm({...contributionForm, action: e.target.value})}
                     placeholder="您是如何解决的？关键的几步动作是什么？"
-                    className="w-full h-32 bg-slate-50 border border-slate-100 rounded-3xl p-5 text-sm text-slate-900 focus:outline-none focus:border-[#F2C94C]/30 transition-all resize-none"
+                    className="w-full h-32 border border-slate-200 rounded-lg p-3 text-sm text-slate-900 focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] outline-none transition-all resize-none"
                   />
                 </div>
               </div>
 
-              <button 
+              {/* PRD: 底部激励文案 */}
+              <p className="text-center text-[11px] text-slate-400 font-medium mb-4">
+                贡献案例可申请成为<span className="text-[#F2C94C] font-bold">实战参赞</span>，获取更多积分
+              </p>
+
+              <button
                 onClick={handleContributionSubmit}
                 className="w-full py-5 bg-[#F2C94C] text-white font-black rounded-3xl shadow-lg shadow-[#F2C94C]/20 hover:scale-[1.01] active:scale-[0.99] transition-all"
               >

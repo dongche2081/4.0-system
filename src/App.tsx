@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage } from './types';
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
 import { generateManagementFeedback } from './services/gemini';
@@ -15,7 +15,7 @@ import { ExpertLeaderboard } from './components/ExpertLeaderboard';
 import { ExpertProfileView } from './components/ExpertProfileView';
 import { HistoryView } from './components/HistoryView';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare, X } from 'lucide-react';
+import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare, X, Users, Target, ArrowUpDown } from 'lucide-react';
 
 export default function App() {
   return (
@@ -66,7 +66,9 @@ function AppContent() {
   const [showProfilePopup, setShowProfilePopup] = useState(false);
   const [isBriefingMode, setIsBriefingMode] = useState(false);
   const [targetTopicId, setTargetTopicId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('全部'); 
+  const [activeTab, setActiveTab] = useState('全部');
+  const [sortBy, setSortBy] = useState<'default' | 'practiceCount' | 'accuracyRate'>('default');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [userStats, setUserStats] = useState<UserStats>(() => {
     const saved = localStorage.getItem('saodiseng_user_stats');
     return saved ? JSON.parse(saved) : {
@@ -102,7 +104,7 @@ function AppContent() {
     );
   };
 
-  const handleTrackInteraction = (caseId: string, type: 'click' | 'play' | 'bookmark' | 'like' | 'comment') => {
+  const handleTrackInteraction = useCallback((caseId: string, type: 'click' | 'play' | 'bookmark' | 'like' | 'comment') => {
     const expertCase = EXPERT_CASES[caseId];
     if (!expertCase) return;
 
@@ -147,7 +149,7 @@ function AppContent() {
         return { ...prev, likes: newLikes };
       });
     }
-  };
+  }, []);
 
   const checkAuthAndExecute = (action: () => void) => {
     if (!isLoggedIn) {
@@ -510,7 +512,7 @@ function AppContent() {
         setIsBriefingMode={setIsBriefingMode}
       />
 
-      <main className="flex-1 flex flex-col relative h-full overflow-hidden">
+      <main className="flex-1 flex flex-col relative h-full overflow-hidden" id="main-scroll-container">
         <Header 
           view={view} 
           setView={handleSetView} 
@@ -537,7 +539,7 @@ function AppContent() {
                       <div className="flex-1 flex flex-col items-center justify-center py-8 md:py-12">
                         <div className="text-center mb-8 animate-[fadeIn_0.8s_ease-out]">
                           <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
-                            输入你的管理痛点，AI将为您自动匹配资深管理者的实战经验
+                            输入你的管理痛点<br/>AI将为您自动匹配资深管理者的实战经验
                           </h2>
                           {renderEmergencyBulletin()}
                         </div>
@@ -553,30 +555,34 @@ function AppContent() {
 
                       {/* Content Grid - Below Input */}
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12 animate-[fadeIn_1s_ease-out]">
-                        <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
-                          <div className="p-6 border-b border-black/5 flex items-center gap-3">
-                            <Flame className="w-5 h-5 text-orange-500 fill-orange-500" />
-                            <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">公司热点话题 TOP 10</h3>
-                          </div>
-                          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {TOPICS.filter(t => t.isHot).map(topic => (
-                              <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-5 hover:bg-white/80 rounded-2xl flex items-center justify-between group transition-all duration-300">
-                                <span className="text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
-                                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#F2C94C] group-hover:translate-x-1" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
+                        {/* 1. 个人高频痛点 TOP 10 */}
                         <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
                           <div className="p-6 border-b border-black/5 flex items-center gap-3">
                             <Trophy className="w-5 h-5 text-[#F2C94C]" />
                             <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">个人高频痛点 TOP 10</h3>
                           </div>
                           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {TOPICS.filter(t => t.isTop10).map((topic, idx) => (
+                            {TOPICS.filter(t => t.isTop10).slice(0, 10).map((topic, idx) => (
                               <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-4 hover:bg-white/80 rounded-2xl flex items-center gap-6 group transition-all duration-300">
                                 <span className="text-sm font-black text-[#F2C94C]/60 group-hover:text-[#F2C94C] group-hover:scale-110 transition-all duration-300">
+                                  {(idx + 1).toString().padStart(2, '0')}
+                                </span>
+                                <span className="flex-1 text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 2. 公司热点话题 TOP 10 (中间位置) */}
+                        <div className="bg-white/60 backdrop-blur-xl rounded-[32px] border border-white/80 flex flex-col overflow-hidden group hover:border-[#F2C94C]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300">
+                          <div className="p-6 border-b border-black/5 flex items-center gap-3">
+                            <Flame className="w-5 h-5 text-orange-500 fill-orange-500" />
+                            <h3 className="text-sm font-black text-[#0A0F1D]/80 uppercase tracking-[0.2em]">公司热点话题 TOP 10</h3>
+                          </div>
+                          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            {TOPICS.filter(t => t.isHot).slice(0, 10).map((topic, idx) => (
+                              <button key={topic.id} onClick={() => handleTopicClick(topic)} className="w-full text-left p-4 hover:bg-white/80 rounded-2xl flex items-center gap-6 group transition-all duration-300">
+                                <span className="text-sm font-black text-orange-500/60 group-hover:text-orange-500 group-hover:scale-110 transition-all duration-300">
                                   {(idx + 1).toString().padStart(2, '0')}
                                 </span>
                                 <span className="flex-1 text-sm font-bold text-gray-600 group-hover:text-[#0A0F1D]">{topic.title}</span>
@@ -641,16 +647,84 @@ function AppContent() {
                           return null;
                         }
                       }
+                      const [searchQuery, setSearchQuery] = useState('');
+
+                      const getCategory = (description: string) => {
+                        if (description.includes('离职') || description.includes('留存')) return '人才留存';
+                        if (description.includes('绩效') || description.includes('目标')) return '绩效管理';
+                        if (description.includes('跨部门') || description.includes('协同')) return '跨部门沟通';
+                        if (description.includes('冲突')) return '团队管理';
+                        if (description.includes('沟通') || description.includes('汇报')) return '沟通管理';
+                        if (description.includes('95后') || description.includes('新生代')) return '新生代管理';
+                        return '常规管理';
+                      };
+
+                      const getSortedScenarios = () => {
+                        let scenarios = Object.values(SCENARIO_DATA)
+                          .filter(scenario => {
+                            // 搜索过滤
+                            if (searchQuery.trim()) {
+                              const query = searchQuery.toLowerCase();
+                              return scenario.description.toLowerCase().includes(query) ||
+                                     getCategory(scenario.description).toLowerCase().includes(query);
+                            }
+                            // 标签过滤
+                            if (activeTab === '全部') return true;
+                            if (activeTab === '人才留存') return scenario.description.includes('离职') || scenario.description.includes('留存');
+                            if (activeTab === '绩效管理') return scenario.description.includes('绩效') || scenario.description.includes('目标');
+                            if (activeTab === '跨部门沟通') return scenario.description.includes('跨部门') || scenario.description.includes('协同');
+                            return true;
+                          });
+                        
+                        if (sortBy === 'default') return scenarios;
+                        
+                        return scenarios.sort((a, b) => {
+                          const aValue = sortBy === 'practiceCount' ? (a.practiceCount || 0) : (a.accuracyRate || 0);
+                          const bValue = sortBy === 'practiceCount' ? (b.practiceCount || 0) : (b.accuracyRate || 0);
+                          return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
+                        });
+                      };
+
+                      const handleSort = (type: 'practiceCount' | 'accuracyRate') => {
+                        if (sortBy === type) {
+                          setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+                        } else {
+                          setSortBy(type);
+                          setSortOrder('desc');
+                        }
+                      };
+
+                      const tabs = ['全部', '人才留存', '绩效管理', '跨部门沟通'];
+
                       return (
                         <>
                           <div className="flex flex-col gap-6">
-                            <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
-                            <div className="flex gap-6 border-b border-slate-100 pb-4">
-                              {['全部', '人才留存', '绩效管理', '跨部门沟通'].map(tab => (
-                                <button 
+                            <div className="flex items-center justify-between">
+                              <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
+                              {/* 搜索框 */}
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  placeholder="搜索题目..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="w-64 px-4 py-2 pl-10 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/20 transition-all"
+                                />
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {tabs.map(tab => (
+                                <button
                                   key={tab}
                                   onClick={() => setActiveTab(tab)}
-                                  className={`text-sm transition-all ${activeTab === tab ? 'text-slate-900 font-medium' : 'text-slate-400 hover:text-slate-600'}`}
+                                  className={`px-4 py-2 text-sm rounded-full transition-all ${
+                                    activeTab === tab
+                                      ? 'bg-[#F2C94C] text-white font-medium shadow-md'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  }`}
                                 >
                                   {tab}
                                 </button>
@@ -658,33 +732,83 @@ function AppContent() {
                             </div>
                           </div>
 
+                          <div className="flex items-center justify-end gap-3 mb-2">
+                            <span className="text-xs text-slate-400">排序：</span>
+                            <button
+                              onClick={() => handleSort('practiceCount')}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
+                                sortBy === 'practiceCount'
+                                  ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
+                                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Users className="w-3 h-3" />
+                              练习人数
+                              {sortBy === 'practiceCount' && (
+                                sortOrder === 'desc' ? '↓' : '↑'
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleSort('accuracyRate')}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
+                                sortBy === 'accuracyRate'
+                                  ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
+                                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Target className="w-3 h-3" />
+                              正确率
+                              {sortBy === 'accuracyRate' && (
+                                sortOrder === 'desc' ? '↓' : '↑'
+                              )}
+                            </button>
+                            {sortBy !== 'default' && (
+                              <button
+                                onClick={() => setSortBy('default')}
+                                className="text-xs text-slate-400 hover:text-slate-600 underline"
+                              >
+                                重置
+                              </button>
+                            )}
+                          </div>
+
                           <div className="grid grid-cols-1 gap-4">
-                            {Object.values(SCENARIO_DATA)
-                              .filter(scenario => {
-                                if (activeTab === '全部') return true;
-                                if (activeTab === '人才留存') return scenario.description.includes('离职') || scenario.description.includes('留存');
-                                if (activeTab === '绩效管理') return scenario.description.includes('绩效') || scenario.description.includes('目标');
-                                if (activeTab === '跨部门沟通') return scenario.description.includes('跨部门') || scenario.description.includes('协同');
-                                return true;
-                              })
-                              .slice(0, 3)
+                            {getSortedScenarios()
                               .map((scenario) => (
-                              <div 
-                                key={scenario.id} 
+                              <div
+                                key={scenario.id}
                                 onClick={() => setSelectedScenario(scenario)}
-                                className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group cursor-pointer hover:border-slate-300 transition-all shadow-none"
+                                className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group cursor-pointer hover:border-[#F2C94C]/50 hover:shadow-md hover:scale-[1.02] transition-all shadow-none"
                               >
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
-                                    <span className="px-2 py-1 bg-slate-50 text-slate-500 text-xs rounded-md">
-                                      {scenario.description.includes('离职') ? '人才留存' : scenario.description.includes('绩效') ? '绩效管理' : '常规管理'}
+                                    <span className={`px-2 py-1 text-xs rounded-md ${
+                                      getCategory(scenario.description) === '人才留存' ? 'bg-red-50 text-red-600' :
+                                      getCategory(scenario.description) === '绩效管理' ? 'bg-blue-50 text-blue-600' :
+                                      getCategory(scenario.description) === '跨部门沟通' ? 'bg-green-50 text-green-600' :
+                                      getCategory(scenario.description) === '团队管理' ? 'bg-purple-50 text-purple-600' :
+                                      getCategory(scenario.description) === '沟通管理' ? 'bg-orange-50 text-orange-600' :
+                                      getCategory(scenario.description) === '新生代管理' ? 'bg-pink-50 text-pink-600' :
+                                      'bg-slate-50 text-slate-500'
+                                    }`}>
+                                      {getCategory(scenario.description)}
                                     </span>
                                   </div>
-                                  <h4 className="text-slate-900 text-base font-normal">
-                                    {scenario.description.split('】')[0].replace('【', '') || '常规管理任务'}
+                                  <h4 className="text-slate-900 text-base font-normal mb-3">
+                                    {scenario.description.split('】')[0].replace('【', '') || scenario.description}
                                   </h4>
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                      <Users className="w-3.5 h-3.5" />
+                                      <span>{scenario.practiceCount?.toLocaleString() || 0}人已练</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                      <Target className="w-3.5 h-3.5" />
+                                      <span>正确率 {scenario.accuracyRate || 0}%</span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="px-6 py-2 border border-slate-200 rounded-full text-slate-600 text-sm group-hover:bg-slate-50 transition-all">
+                                <div className="px-6 py-2 bg-[#F2C94C] text-white font-medium rounded-full text-sm group-hover:bg-[#E5B73B] transition-all shadow-sm">
                                   开始演练
                                 </div>
                               </div>
