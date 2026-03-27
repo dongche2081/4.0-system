@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Topic, Prescription, Expert, DiagnosticContext, ChatMessage } from '../types';
-import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check, ChevronUp, ChevronDown } from 'lucide-react';
+import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check, ShieldAlert } from 'lucide-react';
 import { RichText } from './RichText';
 import { DigestCard } from './DigestCard';
 import { motion, AnimatePresence } from 'motion/react';
@@ -52,49 +52,6 @@ export const TacticalBriefing: React.FC<Props> = ({
   
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // AI 实战建议内容组件 - 可展开折叠
-  const AIInsightContent = () => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    
-    const content = topic.caseStudy || "某互联网大厂主管发现团队进度总是'前松后紧'。他取消了周报，改为'日清看板'：每日下班前，成员需在大群同步'今日核心交付'与'明日卡点预判'。主管不再问'为什么慢'，而是问'我能支持你什么'。通过颗粒度对齐和即时赋能，团队从'推一下动一下'转变为'自驱动冲刺'，项目交付率在双月内提升了 35%。随后，他将这一机制推广至全部门，并建立了'问题升级通道'，确保基层员工的卡点能在 2 小时内得到响应。三个月后，团队不仅提前完成了季度目标，还沉淀出一套可复用的'敏捷管理手册'，成为公司内部的标杆案例。";
-    
-    return (
-      <div className="relative">
-        {/* AI 实战建议小标签 - 放在内容区域内左上角 */}
-        <div className="inline-flex items-center bg-[#F2C94C] text-[#0A0F1D] text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase mb-4">
-          AI 实战建议
-        </div>
-        
-        {/* 可折叠内容 */}
-        <div className="text-slate-800 leading-loose text-base">
-          <div className={`relative overflow-hidden ${!isExpanded ? 'max-h-[3.6rem]' : ''}`}>
-            <p className="text-slate-800 leading-relaxed">
-              {content}
-            </p>
-            {!isExpanded && (
-              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-            )}
-          </div>
-          
-          {/* 展开按钮 */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-[#F2C94C] transition-colors group"
-          >
-            {isExpanded ? (
-              <>
-                收起内容 <ChevronUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
-              </>
-            ) : (
-              <>
-                点此展开查看详细 <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   const matchedExperts = experts.filter(e => e.topics.includes(topic.id) || e.topics.includes(topic.title));
   const expertResources = matchedExperts.length > 0 ? matchedExperts.slice(0, 3) : experts.slice(0, 3);
@@ -145,49 +102,49 @@ export const TacticalBriefing: React.FC<Props> = ({
     <div className="max-w-4xl mx-auto space-y-8 pb-24 animate-[fadeIn_0.3s] pt-4">
       {/* A. 研判解析区 (亮色一体化) */}
       <section className="space-y-6">
-        {/* AI Insight Container (Refactored DigestCard) */}
+        {/* AI Insight Container (Refactored DigestCard) - 仅深度诊断显示 */}
         {topic.id === 'diagnostic-result' && <DigestCard content={prescription?.summary} />}
 
-        <div className="bg-white border border-slate-200 p-8 md:p-10 rounded-3xl relative overflow-hidden shadow-sm">
-          {isGeneratingFeedback && (
-            <div className="flex items-center gap-2 text-[#F2C94C] text-[10px] font-black uppercase tracking-widest mb-6 animate-pulse">
-              <Zap className="w-3 h-3 animate-spin" /> 正在深度研判中...
+        {/* 学一学页面内容 - 显示话题详情和AI建议 */}
+        {topic.id !== 'diagnostic-result' && (
+          <div className="bg-white border border-slate-200 p-6 md:p-8 rounded-3xl relative overflow-hidden shadow-sm">
+            {isGeneratingFeedback && (
+              <div className="flex items-center gap-2 text-[#F2C94C] text-[10px] font-black uppercase tracking-widest mb-6 animate-pulse">
+                <Zap className="w-3 h-3 animate-spin" /> 正在深度研判中...
+              </div>
+            )}
+
+            {/* AI 智能解析解法 标签 */}
+            <div className="absolute top-0 left-0">
+              <div className="bg-[#F2C94C] text-[#0A0F1D] px-4 py-1.5 rounded-br-xl text-[11px] font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" />
+                AI 智能解析解法
+              </div>
             </div>
-          )}
 
-          <div className="space-y-6">
-            {/* AI 实战建议内容 - 可展开折叠 */}
-            <AIInsightContent />
+            <div className="mt-6 space-y-4">
+              {/* AI建议内容 - 截断显示 */}
+              <div className="text-slate-800 text-[15px] leading-relaxed">
+                <p className="line-clamp-2">
+                  {prescription?.truth || topic.caseStudy || "执行力差的本质往往是目标不清晰或激励不到位。某互联网大厂技术总监张工发现，团队连续三个月延期交付，成员普遍缺乏主动性。经过深度调研，他发现问题的根源在于：任务分解过于粗放，每个人只知道大目标，不清楚每日具体产出；绩效考核季度才做一次，反馈周期太长；团队缺乏成就感，看不到自己的努力如何转化为业务价值。基于此，张工采取了系统性改进措施：首先，他将月度目标拆解为周目标，再细化为每日站会明确的三个核心任务，做到'人人有指标，天天有产出'；其次，建立了'小步快跑'的激励机制，每周五下午进行'本周之星'评选，获奖者可获得半天调休和团队掌声，让优秀及时被看见；第三，他引入了'业务价值可视化看板'，将技术产出与业务数据挂钩，让程序员们看到自己写的代码如何提升用户体验、增加营收。三个月后，团队面貌焕然一新：主动加班不再需要催促，成员开始自发优化代码，跨部门协作也更加顺畅。更重要的是，团队形成了'比学赶超'的良好氛围，连续两个月提前完成迭代，客户满意度提升了40个百分点。这套方法论被公司推广到其他部门，成为组织效能提升的标杆案例。"}
+                </p>
+              </div>
+
+              {/* 展开全部内容 按钮 */}
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => {}}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#F2C94C] transition-colors"
+                >
+                  展开全部内容
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* 互动反馈系统 (紧贴容器下方) */}
-        <div className="flex flex-wrap items-center justify-between gap-4 px-2">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleLike}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 ${liked ? 'bg-[#D4AF37] text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-            >
-              <ThumbsUp className={`w-4 h-4 ${liked ? 'fill-white' : ''}`} />
-              <span className="text-xs font-bold">{liked ? '感谢反馈' : '赞同'}</span>
-            </button>
-            <button 
-              onClick={() => setShowDislikeModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-[#F2C94C] transition-all hover:scale-105"
-            >
-              <ThumbsDown className="w-4 h-4" />
-              <span className="text-xs font-bold">不符合预期</span>
-            </button>
-          </div>
-
-          <button 
-            onClick={() => setShowContributionModal(true)}
-            className="flex items-center gap-2 px-5 py-2 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm hover:border-[#F2C94C] hover:text-[#F2C94C] transition-all hover:scale-105 group"
-          >
-            <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
-            <span className="text-xs font-black">我也来支招</span>
-          </button>
-        </div>
+        )}
 
         {/* B. 参考来源 (专家矩阵 - PRD规范：纵向平铺3-4名) */}
         {expertResources.length > 0 && (
@@ -299,11 +256,11 @@ export const TacticalBriefing: React.FC<Props> = ({
 
       {/* Follow-up Input for Diagnostic Results */}
       {topic.id === 'diagnostic-result' && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-6 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/90 to-transparent">
+        <div className="mt-12 pt-6">
           <div className="max-w-4xl mx-auto">
-            <IntentionCapture 
+            <IntentionCapture
               onSearch={(q) => onFollowUp?.(q)}
-              placeholder="针对研判结果，您还有什么想追问 AI 管理能力提升助手的？"
+              placeholder="例如：资源有限如何升级团队能力实现突破"
             />
           </div>
         </div>

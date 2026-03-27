@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppView, Topic, ProfileContext } from '../types';
-import { ChevronRight, Settings, Menu } from 'lucide-react';
+import { ChevronRight, Settings, Menu, Home } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { EXPERTS, EXPERT_CASES } from '../data';
 
@@ -22,10 +22,15 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
   const isExpertCaseDetail = location.pathname.includes('/expert/') && location.pathname.includes('/case/');
   const isExpertProfile = location.pathname.includes('/expert/') && !location.pathname.includes('/case/');
   const isTopicDetail = location.pathname.includes('/topic/');
+  const isDiagnosticResult = location.pathname.includes('/topic/diagnostic-result');
   const isHome = location.pathname === '/';
   const isPractice = location.pathname === '/practice';
-  const isDiagnose = location.pathname === '/diagnose-engine';
+  const isDiagnoseStart = location.pathname === '/diagnose-start';
+  const isDiagnose = location.pathname === '/diagnose-engine' || isDiagnoseStart;
   const isHistory = location.pathname === '/history';
+  
+  // 判断是否为首页（不显示面包屑）
+  const isHomePage = isHome || isPractice || isDiagnoseStart || isHistory;
   
   // 从路由解析专家名称和案例标题
   const pathParts = location.pathname.split('/');
@@ -42,20 +47,6 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
     setView('home');
     navigate('/');
   };
-
-  // 点击模块名返回对应模块首页
-  const handleModuleClick = () => {
-    setSelectedTopic(null);
-    if (isExpertCaseDetail || isExpertProfile) {
-      // 专家实战模块返回首页（专家列表）
-      navigate('/');
-    } else if (isTopicDetail) {
-      setView('home');
-      navigate('/');
-    } else {
-      navigate('/');
-    }
-  };
   
   // 返回专家主页（从案例详情）
   const handleBackToExpert = () => {
@@ -66,67 +57,58 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
     }
   };
 
-  // 获取当前模块名称
-  const getModuleName = () => {
-    if (isExpertCaseDetail || isExpertProfile) return '专家实战';
-    if (isHome || isTopicDetail) return '问一问';
-    if (isPractice) return '练一练';
-    if (isDiagnose) return '聊一聊';
-    if (isHistory) return '历史记录';
-    return '问一问';
-  };
-
   return (
     <div className="flex flex-col flex-shrink-0 z-30">
       <header className="bg-white border-b border-gray-100 h-14 flex items-center px-8 justify-between sticky top-0">
-        <div className="flex items-center text-xs font-bold text-gray-400">
-          <button onClick={toggleSidebar} className="text-[#0A0F1D] mr-4 hover:text-[#F2C94C] transition-colors"><Menu className="w-5 h-5" /></button>
+        <div className="flex items-center text-sm text-gray-500">
+          <button onClick={toggleSidebar} className="text-gray-400 mr-4 hover:text-[#F2C94C] transition-colors"><Menu className="w-5 h-5" /></button>
           
-          {/* Logo - 点击返回首页 */}
-          <button onClick={handleRootClick} className="hover:text-[#F2C94C] transition-colors cursor-pointer">AI 管理能力提升助手</button>
-          
-          <ChevronRight className="w-3 h-3 mx-2 opacity-30" />
-          
-          {/* 模块导航 */}
-          <button 
-            onClick={handleModuleClick}
-            className={`transition-colors ${(selectedTopic || isExpertCaseDetail) ? 'hover:text-[#F2C94C] cursor-pointer' : 'text-[#0A0F1D]'}`}
-          >
-            {getModuleName()}
-          </button>
-
-          {/* 专家案例详情页面的面包屑：专家实战 > 专家名 > 案例标题 */}
-          {isExpertCaseDetail && expert && (
+          {/* 首页不显示面包屑 */}
+          {!isHomePage && (
             <>
-              <ChevronRight className="w-3 h-3 mx-2 opacity-30" />
-              <button 
-                onClick={handleBackToExpert}
-                className="hover:text-[#F2C94C] cursor-pointer transition-colors"
+              {/* 首页根节点 */}
+              <button
+                onClick={handleRootClick}
+                className="flex items-center gap-1 hover:text-[#F2C94C] transition-colors"
               >
-                {expert.name}
+                <Home className="w-4 h-4" />
+                <span>首页</span>
               </button>
-              {expertCase && (
+
+              {/* 专家案例详情页面的面包屑：首页 > 专家名 > 案例标题 */}
+              {isExpertCaseDetail && expert && (
                 <>
-                  <ChevronRight className="w-3 h-3 mx-2 opacity-30" />
-                  <span className="text-[#F2C94C] font-black truncate max-w-[300px]">{expertCase.title}</span>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                  <button
+                    onClick={handleBackToExpert}
+                    className="hover:text-[#F2C94C] transition-colors truncate max-w-[120px]"
+                  >
+                    {expert.name}
+                  </button>
+                  {expertCase && (
+                    <>
+                      <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                      <span className="text-[#0A0F1D] font-medium truncate max-w-[200px]">{expertCase.title}</span>
+                    </>
+                  )}
                 </>
               )}
-            </>
-          )}
 
-          {/* 专家主页面包屑 */}
-          {isExpertProfile && expert && (
-            <>
-              <ChevronRight className="w-3 h-3 mx-2 opacity-30" />
-              <span className="text-[#F2C94C] font-black truncate max-w-[300px]">{expert.name}</span>
-            </>
-          )}
+              {/* 专家主页面包屑：首页 > 专家名 */}
+              {isExpertProfile && expert && (
+                <>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                  <span className="text-[#0A0F1D] font-medium truncate max-w-[280px]">{expert.name}</span>
+                </>
+              )}
 
-          {/* 话题详情页面的面包屑 */}
-          {isTopicDetail && selectedTopic && (
-            <>
-              <ChevronRight className="w-3 h-3 mx-2 opacity-30" />
-              <span className="text-[#F2C94C] font-black truncate max-w-[300px]">{selectedTopic.title}</span>
+              {/* 话题详情页面的面包屑：首页 > 话题标题 */}
+              {isTopicDetail && selectedTopic && (
+                <>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                  <span className="text-[#0A0F1D] font-medium truncate max-w-[280px]">{selectedTopic.title}</span>
+                </>
+              )}
             </>
           )}
         </div>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Volume2, AlertCircle } from 'lucide-react';
 
 interface Props {
   content?: string;
@@ -26,10 +25,9 @@ const Waveform = () => (
   </div>
 );
 
-export const DigestCard: React.FC<Props> = ({ 
-  content = "当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。" 
+export const DigestCard: React.FC<Props> = ({
+  content = "当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。"
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
@@ -65,13 +63,14 @@ export const DigestCard: React.FC<Props> = ({
 
   return (
     <div className="relative bg-white rounded-3xl p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 mb-8 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-      {/* Hanging Label - PRD: 左上角悬挂金色"AI 实战建议"标签 */}
-      <div className="absolute -top-3 left-8 bg-[#F2C94C] text-[#0A0F1D] text-[10px] font-black px-4 py-1.5 rounded-full shadow-sm tracking-widest uppercase">
-        AI 实战建议
+      {/* Hanging Label - 左上角悬挂金色"AI智能诊断解法"标签 */}
+      <div className="absolute -top-3 left-8 bg-[#F2C94C] text-[#0A0F1D] text-[10px] font-black px-4 py-1.5 rounded-full shadow-sm tracking-widest uppercase flex items-center gap-1">
+        <span className="w-1.5 h-1.5 bg-[#0A0F1D] rounded-full"></span>
+        AI智能诊断解法
       </div>
 
       {/* TTS Trigger - PRD: 右上角小喇叭图标 */}
-      <button 
+      <button
         onClick={togglePlay}
         className="absolute top-6 right-8 p-2 rounded-full hover:bg-slate-50 transition-colors group"
         title={isPlaying ? "停止播报" : "语音播报"}
@@ -87,6 +86,8 @@ export const DigestCard: React.FC<Props> = ({
 
       {/* Content Area */}
       <div className="mt-4">
+        {/* 诊断来源说明 */}
+        <p className="text-xs text-slate-400 mb-3">基于您提供的现场信息，我们匹配了相关管理案例与解决方案</p>
         {/* Character count warning for content managers (dev mode only) */}
         {process.env.NODE_ENV === 'development' && !isValidLength && (
           <div className="mb-3 flex items-center gap-2 text-amber-500 text-[10px]">
@@ -95,38 +96,9 @@ export const DigestCard: React.FC<Props> = ({
           </div>
         )}
 
-        <motion.div
-          initial={false}
-          animate={{ height: isExpanded ? "auto" : "4.5rem" }} // Roughly 3 lines
-          className="overflow-hidden relative"
-        >
-          <p className={`text-slate-800 leading-relaxed text-sm ${!isExpanded ? 'line-clamp-3' : ''}`}>
-            {content}
-          </p>
-          
-          {/* Gradient overlay when collapsed */}
-          {!isExpanded && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-          )}
-        </motion.div>
-
-        {/* Expand/Collapse Button - PRD: 底部居中"展开全部内容" */}
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-[#F2C94C] transition-colors group"
-          >
-            {isExpanded ? (
-              <>
-                收起内容 <ChevronUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
-              </>
-            ) : (
-              <>
-                展开全部内容 <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
-              </>
-            )}
-          </button>
-        </div>
+        <p className="text-slate-800 leading-relaxed text-sm">
+          {content}
+        </p>
       </div>
     </div>
   );

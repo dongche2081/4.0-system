@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage } from './types';
+import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage, StudyRecord, SimulationRecord } from './types';
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
 import { generateManagementFeedback } from './services/gemini';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -60,6 +60,14 @@ function AppContent() {
   const [selectedScenario, setSelectedScenario] = useState<any | null>(null);
   const [activePrescription, setActivePrescription] = useState<Prescription | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [studyRecords, setStudyRecords] = useState<StudyRecord[]>(() => {
+    const saved = localStorage.getItem('saodiseng_study_records');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [practiceRecords, setPracticeRecords] = useState<SimulationRecord[]>(() => {
+    const saved = localStorage.getItem('saodiseng_practice_records');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [aiFeedback, setAiFeedback] = useState<string>('');
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
@@ -87,6 +95,45 @@ function AppContent() {
   useEffect(() => {
     localStorage.setItem('saodiseng_user_stats', JSON.stringify(userStats));
   }, [userStats]);
+
+  useEffect(() => {
+    localStorage.setItem('saodiseng_study_records', JSON.stringify(studyRecords));
+  }, [studyRecords]);
+
+  useEffect(() => {
+    localStorage.setItem('saodiseng_practice_records', JSON.stringify(practiceRecords));
+  }, [practiceRecords]);
+
+  // 记录学习行为
+  const recordStudyAction = (topic: Topic, expert: Expert, action: 'view' | 'bookmark' | 'share', duration: number = 0) => {
+    const newRecord: StudyRecord = {
+      id: `study-${Date.now()}`,
+      topicId: topic.id,
+      topicTitle: topic.title,
+      expertName: expert.name,
+      expertTitle: expert.title,
+      action,
+      timestamp: Date.now(),
+      duration,
+    };
+    setStudyRecords(prev => [newRecord, ...prev].slice(0, 100)); // 保留最近100条
+  };
+
+  // 记录演练行为
+  const recordPracticeAction = (scenario: any, selectedOption: string, isCorrect: boolean, timeSpent: number) => {
+    const newRecord: SimulationRecord = {
+      id: `practice-${Date.now()}`,
+      scenarioId: scenario.id,
+      scenarioTitle: scenario.description,
+      category: '常规管理', // 可以从scenario中提取
+      selectedOption,
+      isCorrect,
+      impact: scenario.options.find((o: any) => o.id === selectedOption)?.impact || { morale: 0, efficiency: 0, retention: 0 },
+      timestamp: Date.now(),
+      timeSpent,
+    };
+    setPracticeRecords(prev => [newRecord, ...prev].slice(0, 100));
+  };
 
   const ExpertProfileViewWrapper = ({ experts, onBook, onViewCase }: { experts: Expert[], onBook: (id: string) => void, onViewCase: (caseId: string, expertId: string) => void }) => {
     const { expertId } = useParams<{ expertId: string }>();
@@ -301,6 +348,7 @@ function AppContent() {
     localStorage.setItem('management_history', JSON.stringify([historyItem, ...savedHistory]));
     
     navigate(`/topic/${topic.id}`);
+    setView('diagnose-start'); // 保持聊一聊模块高亮
     setTargetTopicId(null);
   };
 
@@ -437,6 +485,221 @@ function AppContent() {
         initialIsBookmarked={userStats.bookmarks?.includes(expertCase.id)}
         initialIsLiked={userStats.likes?.includes(expertCase.id)}
       />
+    );
+  };
+
+  interface PracticeRouteProps {
+    selectedScenario: any;
+    setSelectedScenario: (scenario: any) => void;
+    targetTopicId: string | null;
+    setTargetTopicId: (id: string | null) => void;
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
+    sortBy: 'default' | 'practiceCount' | 'accuracyRate';
+    setSortBy: (sort: 'default' | 'practiceCount' | 'accuracyRate') => void;
+    sortOrder: 'asc' | 'desc';
+    setSortOrder: (order: 'asc' | 'desc') => void;
+  }
+
+  const PracticeRoute: React.FC<PracticeRouteProps> = ({
+    selectedScenario,
+    setSelectedScenario,
+    targetTopicId,
+    setTargetTopicId,
+    activeTab,
+    setActiveTab,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder
+  }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // 自动跳转逻辑
+    useEffect(() => {
+      if (targetTopicId && !selectedScenario) {
+        const scenarioMap: Record<string, string> = {
+          '1': '1', '3': 't2', '6': 't1', '7': 't3',
+        };
+        const scenarioId = scenarioMap[targetTopicId];
+        if (scenarioId && SCENARIO_DATA[scenarioId]) {
+          setSelectedScenario(SCENARIO_DATA[scenarioId]);
+          setTargetTopicId(null);
+        }
+      }
+    }, [targetTopicId, selectedScenario, setSelectedScenario, setTargetTopicId]);
+
+    if (selectedScenario) {
+      return <SimulationEngine scenario={selectedScenario} onExit={() => setSelectedScenario(null)} />;
+    }
+
+    const getCategory = (description: string) => {
+      if (description.includes('离职') || description.includes('留存')) return '人才留存';
+      if (description.includes('绩效') || description.includes('目标')) return '绩效管理';
+      if (description.includes('跨部门') || description.includes('协同')) return '跨部门沟通';
+      if (description.includes('冲突')) return '团队管理';
+      if (description.includes('沟通') || description.includes('汇报')) return '沟通管理';
+      if (description.includes('95后') || description.includes('新生代')) return '新生代管理';
+      return '常规管理';
+    };
+
+    const getSortedScenarios = () => {
+      let scenarios = Object.values(SCENARIO_DATA)
+        .filter(scenario => {
+          // 搜索过滤
+          if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            return scenario.description.toLowerCase().includes(query) ||
+                   getCategory(scenario.description).toLowerCase().includes(query);
+          }
+          // 标签过滤
+          if (activeTab === '全部') return true;
+          if (activeTab === '人才留存') return scenario.description.includes('离职') || scenario.description.includes('留存');
+          if (activeTab === '绩效管理') return scenario.description.includes('绩效') || scenario.description.includes('目标');
+          if (activeTab === '跨部门沟通') return scenario.description.includes('跨部门') || scenario.description.includes('协同');
+          return true;
+        });
+      
+      if (sortBy === 'default') return scenarios;
+      
+      return scenarios.sort((a, b) => {
+        const aValue = sortBy === 'practiceCount' ? (a.practiceCount || 0) : (a.accuracyRate || 0);
+        const bValue = sortBy === 'practiceCount' ? (b.practiceCount || 0) : (b.accuracyRate || 0);
+        return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
+      });
+    };
+
+    const handleSort = (type: 'practiceCount' | 'accuracyRate') => {
+      if (sortBy === type) {
+        setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+      } else {
+        setSortBy(type);
+        setSortOrder('desc');
+      }
+    };
+
+    const tabs = ['全部', '人才留存', '绩效管理', '跨部门沟通'];
+
+    return (
+      <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
+            {/* 搜索框 */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="搜索题目..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64 px-4 py-2 pl-10 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/20 transition-all"
+              />
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {tabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm rounded-full transition-all ${
+                  activeTab === tab
+                    ? 'bg-[#F2C94C] text-white font-medium shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 mb-2">
+          <span className="text-xs text-slate-400">排序：</span>
+          <button
+            onClick={() => handleSort('practiceCount')}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
+              sortBy === 'practiceCount'
+                ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            <Users className="w-3 h-3" />
+            练习人数
+            {sortBy === 'practiceCount' && (
+              sortOrder === 'desc' ? '↓' : '↑'
+            )}
+          </button>
+          <button
+            onClick={() => handleSort('accuracyRate')}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
+              sortBy === 'accuracyRate'
+                ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            <Target className="w-3 h-3" />
+            正确率
+            {sortBy === 'accuracyRate' && (
+              sortOrder === 'desc' ? '↓' : '↑'
+            )}
+          </button>
+          {sortBy !== 'default' && (
+            <button
+              onClick={() => setSortBy('default')}
+              className="text-xs text-slate-400 hover:text-slate-600 underline"
+            >
+              重置
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {getSortedScenarios().map((scenario) => (
+            <div
+              key={scenario.id}
+              className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group hover:border-[#F2C94C]/50 hover:shadow-md hover:scale-[1.02] transition-all shadow-none"
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`px-2 py-1 text-xs rounded-md ${
+                    getCategory(scenario.description) === '人才留存' ? 'bg-red-50 text-red-600' :
+                    getCategory(scenario.description) === '绩效管理' ? 'bg-blue-50 text-blue-600' :
+                    getCategory(scenario.description) === '跨部门沟通' ? 'bg-green-50 text-green-600' :
+                    getCategory(scenario.description) === '团队管理' ? 'bg-purple-50 text-purple-600' :
+                    getCategory(scenario.description) === '沟通管理' ? 'bg-orange-50 text-orange-600' :
+                    getCategory(scenario.description) === '新生代管理' ? 'bg-pink-50 text-pink-600' :
+                    'bg-slate-50 text-slate-500'
+                  }`}>
+                    {getCategory(scenario.description)}
+                  </span>
+                </div>
+                <h4 className="text-slate-900 text-base font-normal mb-3">
+                  {scenario.description.split('】')[0].replace('【', '') || scenario.description}
+                </h4>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{scenario.practiceCount?.toLocaleString() || 0}人已练</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <Target className="w-3.5 h-3.5" />
+                    <span>正确率 {scenario.accuracyRate || 0}%</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedScenario(scenario)}
+                className="px-6 py-2 bg-[#F2C94C] text-white font-medium rounded-full text-sm hover:bg-[#E5B73B] transition-all shadow-sm cursor-pointer"
+              >
+                开始演练
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   };
 
@@ -634,241 +897,200 @@ function AppContent() {
               <Route path="/expert/:expertId/case/:caseId" element={<ExpertCaseDetailWrapper />} />
 
               <Route path="/practice" element={
-                !selectedScenario ? (
-                  <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
-                    {(() => {
-                      if (targetTopicId && !selectedScenario) {
-                        const scenarioMap: Record<string, string> = {
-                          '1': '1', '3': 't2', '6': 't1', '7': 't3',
-                        };
-                        const scenarioId = scenarioMap[targetTopicId];
-                        if (scenarioId && SCENARIO_DATA[scenarioId]) {
-                          setTimeout(() => setSelectedScenario(SCENARIO_DATA[scenarioId]), 0);
-                          return null;
-                        }
-                      }
-                      const [searchQuery, setSearchQuery] = useState('');
-
-                      const getCategory = (description: string) => {
-                        if (description.includes('离职') || description.includes('留存')) return '人才留存';
-                        if (description.includes('绩效') || description.includes('目标')) return '绩效管理';
-                        if (description.includes('跨部门') || description.includes('协同')) return '跨部门沟通';
-                        if (description.includes('冲突')) return '团队管理';
-                        if (description.includes('沟通') || description.includes('汇报')) return '沟通管理';
-                        if (description.includes('95后') || description.includes('新生代')) return '新生代管理';
-                        return '常规管理';
-                      };
-
-                      const getSortedScenarios = () => {
-                        let scenarios = Object.values(SCENARIO_DATA)
-                          .filter(scenario => {
-                            // 搜索过滤
-                            if (searchQuery.trim()) {
-                              const query = searchQuery.toLowerCase();
-                              return scenario.description.toLowerCase().includes(query) ||
-                                     getCategory(scenario.description).toLowerCase().includes(query);
-                            }
-                            // 标签过滤
-                            if (activeTab === '全部') return true;
-                            if (activeTab === '人才留存') return scenario.description.includes('离职') || scenario.description.includes('留存');
-                            if (activeTab === '绩效管理') return scenario.description.includes('绩效') || scenario.description.includes('目标');
-                            if (activeTab === '跨部门沟通') return scenario.description.includes('跨部门') || scenario.description.includes('协同');
-                            return true;
-                          });
-                        
-                        if (sortBy === 'default') return scenarios;
-                        
-                        return scenarios.sort((a, b) => {
-                          const aValue = sortBy === 'practiceCount' ? (a.practiceCount || 0) : (a.accuracyRate || 0);
-                          const bValue = sortBy === 'practiceCount' ? (b.practiceCount || 0) : (b.accuracyRate || 0);
-                          return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
-                        });
-                      };
-
-                      const handleSort = (type: 'practiceCount' | 'accuracyRate') => {
-                        if (sortBy === type) {
-                          setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-                        } else {
-                          setSortBy(type);
-                          setSortOrder('desc');
-                        }
-                      };
-
-                      const tabs = ['全部', '人才留存', '绩效管理', '跨部门沟通'];
-
-                      return (
-                        <>
-                          <div className="flex flex-col gap-6">
-                            <div className="flex items-center justify-between">
-                              <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
-                              {/* 搜索框 */}
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  placeholder="搜索题目..."
-                                  value={searchQuery}
-                                  onChange={(e) => setSearchQuery(e.target.value)}
-                                  className="w-64 px-4 py-2 pl-10 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/20 transition-all"
-                                />
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              {tabs.map(tab => (
-                                <button
-                                  key={tab}
-                                  onClick={() => setActiveTab(tab)}
-                                  className={`px-4 py-2 text-sm rounded-full transition-all ${
-                                    activeTab === tab
-                                      ? 'bg-[#F2C94C] text-white font-medium shadow-md'
-                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                  }`}
-                                >
-                                  {tab}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-end gap-3 mb-2">
-                            <span className="text-xs text-slate-400">排序：</span>
-                            <button
-                              onClick={() => handleSort('practiceCount')}
-                              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
-                                sortBy === 'practiceCount'
-                                  ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
-                                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Users className="w-3 h-3" />
-                              练习人数
-                              {sortBy === 'practiceCount' && (
-                                sortOrder === 'desc' ? '↓' : '↑'
-                              )}
-                            </button>
-                            <button
-                              onClick={() => handleSort('accuracyRate')}
-                              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
-                                sortBy === 'accuracyRate'
-                                  ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
-                                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Target className="w-3 h-3" />
-                              正确率
-                              {sortBy === 'accuracyRate' && (
-                                sortOrder === 'desc' ? '↓' : '↑'
-                              )}
-                            </button>
-                            {sortBy !== 'default' && (
-                              <button
-                                onClick={() => setSortBy('default')}
-                                className="text-xs text-slate-400 hover:text-slate-600 underline"
-                              >
-                                重置
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-4">
-                            {getSortedScenarios()
-                              .map((scenario) => (
-                              <div
-                                key={scenario.id}
-                                onClick={() => setSelectedScenario(scenario)}
-                                className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group cursor-pointer hover:border-[#F2C94C]/50 hover:shadow-md hover:scale-[1.02] transition-all shadow-none"
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <span className={`px-2 py-1 text-xs rounded-md ${
-                                      getCategory(scenario.description) === '人才留存' ? 'bg-red-50 text-red-600' :
-                                      getCategory(scenario.description) === '绩效管理' ? 'bg-blue-50 text-blue-600' :
-                                      getCategory(scenario.description) === '跨部门沟通' ? 'bg-green-50 text-green-600' :
-                                      getCategory(scenario.description) === '团队管理' ? 'bg-purple-50 text-purple-600' :
-                                      getCategory(scenario.description) === '沟通管理' ? 'bg-orange-50 text-orange-600' :
-                                      getCategory(scenario.description) === '新生代管理' ? 'bg-pink-50 text-pink-600' :
-                                      'bg-slate-50 text-slate-500'
-                                    }`}>
-                                      {getCategory(scenario.description)}
-                                    </span>
-                                  </div>
-                                  <h4 className="text-slate-900 text-base font-normal mb-3">
-                                    {scenario.description.split('】')[0].replace('【', '') || scenario.description}
-                                  </h4>
-                                  <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                                      <Users className="w-3.5 h-3.5" />
-                                      <span>{scenario.practiceCount?.toLocaleString() || 0}人已练</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                                      <Target className="w-3.5 h-3.5" />
-                                      <span>正确率 {scenario.accuracyRate || 0}%</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="px-6 py-2 bg-[#F2C94C] text-white font-medium rounded-full text-sm group-hover:bg-[#E5B73B] transition-all shadow-sm">
-                                  开始演练
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                ) : (
-                  <SimulationEngine scenario={selectedScenario} onExit={() => setSelectedScenario(null)} />
-                )
+                <PracticeRoute
+                  selectedScenario={selectedScenario}
+                  setSelectedScenario={setSelectedScenario}
+                  targetTopicId={targetTopicId}
+                  setTargetTopicId={setTargetTopicId}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortOrder={sortOrder}
+                  setSortOrder={setSortOrder}
+                />
               } />
 
               <Route path="/diagnose-start" element={
-                <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[80vh]">
-                  <div className="max-w-4xl w-full space-y-16">
-                    <div className="text-center space-y-6">
-                      <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#F2C94C]/10 border border-[#F2C94C]/30 rounded-full text-[#F2C94C] text-[10px] font-black uppercase tracking-widest">
-                        <Activity className="w-3 h-3" /> 实战研判中心
+                <div className="flex-1 flex flex-col bg-[#F8FAFC] min-h-screen">
+                  {/* 顶部 - 输入区 */}
+                  <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+                    <div className="w-full max-w-3xl space-y-10">
+                      {/* 标题区 */}
+                      <div className="text-center space-y-5">
+                        <h1 className="text-4xl md:text-5xl font-black text-[#0A0F1D] tracking-tight">
+                          深度诊断您的<span className="text-[#F2C94C]">管理困境</span>
+                        </h1>
+                        <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">
+                          AI 管理参谋为您起底问题本质，提供定制化决策路径
+                        </p>
                       </div>
-                      <h1 className="text-5xl font-black text-[#0A0F1D] tracking-tight">描述您的管理卡点</h1>
-                      <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed">
-                        【问一问】提供通用锦囊，【聊一聊】针对您的具体“人、事、时、空”，发起定制化起底与决策辅助。
-                      </p>
-                    </div>
-                    
-                    <div className="relative">
-                      <IntentionCapture 
-                        mode="new-search"
-                        variant="command"
-                        onSearch={(q) => {
-                          setPendingQuery(q);
-                          navigate('/diagnose-engine');
-                        }} 
-                        onStartDiagnose={() => navigate('/diagnose-engine')}
-                      />
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
-                      {[
-                        { title: '团队执行力差', desc: '指令下达后，结果总是打折扣' },
-                        { title: '核心骨干流失', desc: '关键人才突然提出离职，如何挽留' },
-                        { title: '跨部门协作难', desc: '资源协调不动，推进受阻' }
-                      ].map((item, i) => (
-                        <motion.div 
-                          key={i} 
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.1 }}
-                          onClick={() => {
-                            setPendingQuery(item.title);
-                            navigate('/diagnose-engine');
-                          }}
-                          className="p-6 bg-white border border-gray-100 rounded-2xl hover:border-[#F2C94C] hover:shadow-xl hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group"
+                      {/* 搜索输入区 */}
+                      <div className="space-y-4">
+                        <div className="relative group">
+                          <textarea
+                            placeholder="描述一个让你头疼的管理场景，或说出现在的团队状态..."
+                            rows={3}
+                            className="w-full px-6 py-5 bg-white border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 text-base focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/10 resize-none transition-all shadow-sm"
+                            onChange={(e) => setPendingQuery(e.target.value)}
+                          />
+                          <div className="absolute bottom-4 right-4 text-slate-400">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={() => navigate('/diagnose-engine')}
+                          className="w-full py-4 bg-[#F2C94C] hover:bg-[#E5B73B] text-white font-black text-lg rounded-xl shadow-lg shadow-[#F2C94C]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                         >
-                          <h4 className="font-bold text-[#0A0F1D] mb-2 group-hover:text-[#F2C94C]">{item.title}</h4>
-                          <p className="text-xs text-gray-400">{item.desc}</p>
-                        </motion.div>
-                      ))}
+                          <Activity className="w-5 h-5" />
+                          点击开启深度诊断
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 中部 - 高频现象自测区 */}
+                  <div className="px-6 pb-8">
+                    <div className="max-w-5xl mx-auto">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-1 h-6 bg-[#F2C94C] rounded-full"></div>
+                        <h3 className="text-lg font-bold text-slate-800">高频现象自测区</h3>
+                        <span className="text-xs text-slate-400">选择与您最贴近的症状，快速进入诊断</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          {
+                            id: 'bottleneck',
+                            title: '管理瓶颈诊断',
+                            desc: '团队推一下动一下，不推就不动，缺乏自驱力',
+                            icon: '🔍',
+                            bgColor: 'bg-amber-50'
+                          },
+                          {
+                            id: 'turnover',
+                            title: '人才流失预警',
+                            desc: '核心干劲突然沉寂，疑似有离职倾向，该如何提前切入？',
+                            icon: '⚠️',
+                            bgColor: 'bg-red-50'
+                          },
+                          {
+                            id: 'collaboration',
+                            title: '跨部门破冰',
+                            desc: '资源调不动，协作像撞墙，如何打破利益围栏？',
+                            icon: '🌉',
+                            bgColor: 'bg-blue-50'
+                          }
+                        ].map((item, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.1 }}
+                            onClick={() => {
+                              setPendingQuery(item.desc);
+                              navigate('/diagnose-engine');
+                            }}
+                            className="p-5 bg-white border border-slate-100 rounded-2xl hover:border-[#F2C94C] hover:shadow-lg hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className={`w-10 h-10 ${item.bgColor} rounded-xl flex items-center justify-center text-xl`}>{item.icon}</span>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-slate-800 mb-2 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
+                                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                              </div>
+                            </div>
+                            <div className="mt-4 flex items-center gap-2 text-xs text-slate-400 group-hover:text-[#F2C94C] transition-colors">
+                              <span>立即诊断</span>
+                              <ChevronRight className="w-4 h-4" />
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 底部 - 历史诊断档案 */}
+                  <div className="px-6 pb-12">
+                    <div className="max-w-5xl mx-auto">
+                      <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-1 h-6 bg-[#F2C94C] rounded-full"></div>
+                            <h3 className="text-lg font-bold text-slate-800">历史诊断档案</h3>
+                          </div>
+                          <button
+                            onClick={() => navigate('/history')}
+                            className="text-xs text-[#F2C94C] hover:text-[#E5B73B] transition-colors flex items-center gap-1"
+                          >
+                            查看全部
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {history.slice(0, 4).length > 0 ? (
+                            history.slice(0, 4).map((item, i) => (
+                              <div
+                                key={i}
+                                onClick={() => navigate('/history')}
+                                className="p-4 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-200 transition-all cursor-pointer group"
+                              >
+                                <div className="text-xs text-slate-400 mb-1">{new Date(item.timestamp).toLocaleDateString()}</div>
+                                <div className="text-sm text-slate-700 line-clamp-2 group-hover:text-[#F2C94C] transition-colors">
+                                  {item.query}
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${item.isDeepDiagnosis ? 'bg-[#F2C94C]' : 'bg-slate-400'}`}></span>
+                                  <span className="text-xs text-slate-500">{item.isDeepDiagnosis ? '深度诊断' : '快速咨询'}</span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <>
+                              <div className="p-4 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                  </svg>
+                                </div>
+                                <div className="text-xs text-slate-500">暂无历史诊断</div>
+                              </div>
+                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-6 h-6 rounded-full bg-[#F2C94C]/10 flex items-center justify-center">
+                                    <span className="text-xs">🎯</span>
+                                  </div>
+                                  <span className="text-xs text-slate-400">示例诊断</span>
+                                </div>
+                                <div className="text-sm text-slate-600">团队执行力持续下滑...</div>
+                              </div>
+                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-6 h-6 rounded-full bg-[#F2C94C]/10 flex items-center justify-center">
+                                    <span className="text-xs">⚡</span>
+                                  </div>
+                                  <span className="text-xs text-slate-400">示例诊断</span>
+                                </div>
+                                <div className="text-sm text-slate-600">跨部门项目推进受阻...</div>
+                              </div>
+                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-6 h-6 rounded-full bg-[#F2C94C]/10 flex items-center justify-center">
+                                    <span className="text-xs">🔥</span>
+                                  </div>
+                                  <span className="text-xs text-slate-400">示例诊断</span>
+                                </div>
+                                <div className="text-sm text-slate-600">核心骨干提出离职...</div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -891,17 +1113,31 @@ function AppContent() {
               } />
 
               <Route path="/history" element={
-                <HistoryView 
-                  history={history} 
+                <HistoryView
+                  history={history}
+                  studyRecords={studyRecords}
+                  practiceRecords={practiceRecords}
                   onNavigate={(v, item) => {
                     handleHistoryNavigate(v, item);
                     if (v === 'topic-detail' && item.topicId) {
                       navigate(`/topic/${item.topicId}`);
                     } else if (v === 'topic-detail') {
                       navigate(`/topic/custom`);
+                    } else if (v === 'practice' && item.scenarioId) {
+                      const scenario = Object.values(SCENARIO_DATA).find(s => s.id === item.scenarioId);
+                      if (scenario) {
+                        setSelectedScenario(scenario);
+                        navigate('/practice');
+                      }
+                    } else if (v === 'home') {
+                      navigate('/');
                     }
                   }}
-                  bookmarks={userStats.bookmarks || []}
+                  bookmarks={Object.values(EXPERT_CASES).filter(c => userStats.bookmarks?.includes(c.id))}
+                  onReloadChat={(ctx) => {
+                    setContext(ctx);
+                    navigate('/diagnose-start');
+                  }}
                 />
               } />
 
@@ -942,7 +1178,8 @@ function AppContent() {
           </div>
         )}
 
-        <footer className="py-8 text-center">
+        {/* 页脚 - 自然流式布局，随内容滚动 */}
+        <footer className="py-8 text-center mt-auto">
           <p className="text-[10px] text-slate-400">
             及时、精准、有效解决管理痛点，助力每一位管理者提升管理能力
           </p>

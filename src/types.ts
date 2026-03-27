@@ -147,3 +147,31 @@ export interface Prescription {
   script: { opening: string; responses: string[]; closing: string; };
   redLines: string[];
 }
+
+// 历史记录相关类型
+export interface StudyRecord {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  expertName: string;
+  expertTitle: string;
+  action: 'view' | 'bookmark' | 'share';
+  timestamp: number;
+  duration: number; // 阅读时长（秒）
+}
+
+export interface SimulationRecord {
+  id: string;
+  scenarioId: string;
+  scenarioTitle: string;
+  category: string;
+  selectedOption: string;
+  isCorrect: boolean;
+  impact?: {
+    morale: number;
+    efficiency: number;
+    retention: number;
+  };
+  timestamp: number;
+  timeSpent: number; // 答题用时（秒）
+}

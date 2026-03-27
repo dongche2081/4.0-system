@@ -4,16 +4,18 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   onSearch: (query: string) => void;
-  onStartDiagnose: () => void;
+  onStartDiagnose?: () => void;
   mode?: 'new-search' | 'follow-up';
   variant?: 'default' | 'command';
+  placeholder?: string;
 }
 
-export const IntentionCapture: React.FC<Props> = ({ 
-  onSearch, 
+export const IntentionCapture: React.FC<Props> = ({
+  onSearch,
   onStartDiagnose,
   mode = 'new-search',
-  variant = 'default'
+  variant = 'default',
+  placeholder
 }) => {
   const [query, setQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -70,7 +72,7 @@ export const IntentionCapture: React.FC<Props> = ({
             setShowSuggestions(e.target.value.length > 0);
           }}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder={mode === 'follow-up' ? "基于以上研判，您还有哪些具体的实战困惑？" : "例如：资源有限如何升级团队能力实现突破"}
+          placeholder={placeholder || (mode === 'follow-up' ? "基于以上研判，您还有哪些具体的实战困惑？" : "例如：资源有限如何升级团队能力实现突破")}
           className={`w-full py-5 bg-transparent outline-none ${
             isCommand ? 'text-slate-900 placeholder-slate-300 text-lg' : 'text-slate-700 placeholder-slate-300'
           }`}
