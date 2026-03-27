@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, AlertCircle } from 'lucide-react';
+import { Volume2, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   content?: string;
@@ -26,9 +27,10 @@ const Waveform = () => (
 );
 
 export const DigestCard: React.FC<Props> = ({
-  content = "当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。"
+  content = `执行力差的本质往往是目标不清晰或激励不到位。当团队成员出现"推一下动一下"的情况时，问题通常不在于员工的态度，而在于管理者未能将目标拆解到可执行粒度，也未能建立有效的反馈闭环。建议指挥官立即进行目标颗粒度诊断，检查每个任务是否有明确的交付标准、截止时间和验收方式。同时，建立日清机制，每日同步进度而非每周汇报，让问题暴露在24小时内而非一周后。管理者的核心价值在于消除信息不对称，并为下属提供即时反馈，而非在问题爆发后才进行事后追责。`
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -36,14 +38,8 @@ export const DigestCard: React.FC<Props> = ({
     };
   }, []);
 
-  // Validation logic: 300 characters max per PRD
-  const charCount = content.length;
-  const isValidLength = charCount <= 300;
-  
-  // Debug warning for development
-  if (process.env.NODE_ENV === 'development' && !isValidLength) {
-    console.warn(`[DigestCard] Content length (${charCount}) exceeds PRD limit (300 chars max).`);
-  }
+  // 判断内容是否需要展开（超过80字视为长内容）
+  const shouldShowExpand = content.length > 80;
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,6 +55,10 @@ export const DigestCard: React.FC<Props> = ({
       window.speechSynthesis.cancel();
       setIsPlaying(false);
     }
+  };
+
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
   };
 
   return (
@@ -88,17 +88,45 @@ export const DigestCard: React.FC<Props> = ({
       <div className="mt-4">
         {/* 诊断来源说明 */}
         <p className="text-xs text-slate-400 mb-3">基于您提供的现场信息，我们匹配了相关管理案例与解决方案</p>
-        {/* Character count warning for content managers (dev mode only) */}
-        {process.env.NODE_ENV === 'development' && !isValidLength && (
-          <div className="mb-3 flex items-center gap-2 text-amber-500 text-[10px]">
-            <AlertCircle className="w-3 h-3" />
-            <span>字数 {charCount}，PRD 要求 300 字以内</span>
-          </div>
-        )}
 
-        <p className="text-slate-800 leading-relaxed text-sm">
-          {content}
-        </p>
+        {/* 内容区域，支持展开/折叠 */}
+        <div className="relative">
+          <AnimatePresence initial={false}>
+            <motion.div
+              initial={false}
+              animate={{ 
+                height: isExpanded || !shouldShowExpand ? "auto" : "3.2em"
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <p className="text-slate-800 leading-relaxed text-sm">
+                {content}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+          
+          {/* 未展开时的渐变遮罩 */}
+          {shouldShowExpand && !isExpanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+          )}
+        </div>
+
+        {/* 展开/折叠按钮 */}
+        {shouldShowExpand && (
+          <button
+            onClick={toggleExpand}
+            className="mt-3 flex items-center gap-1 text-xs text-slate-500 hover:text-[#F2C94C] transition-colors group"
+          >
+            <span>{isExpanded ? "收起内容" : "展开详细内容"}</span>
+            <motion.div
+              animate={{ rotate: isExpanded ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </motion.div>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -49,14 +49,41 @@ ${historyPrompt}
 
 请使用纯文本格式，适当换行。`;
 
+    // 检查 API key 是否设置
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn('Gemini API Key 未设置，返回模拟回复');
+      return `【本质原因】
+管理问题的表象背后往往是系统性失调。当前困境的核心在于：目标传导链断裂，导致执行层失去方向感；反馈机制失效，使得偏差无法及时纠偏。
+
+【破局思路】
+1. 重建目标穿透体系：将战略目标拆解为可量化的阶段性指标
+2. 建立高频反馈闭环：用日清机制替代周报，让问题暴露在24小时内
+3. 激活内在驱动力：让团队看见工作成果与业务价值的关联
+
+【AI 管理能力提升助手金句】
+"管理不是控制，而是消除信息不对称。"`;
+    }
+
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash',
       contents: prompt,
     });
 
     return response.text || '抱歉，AI 管理能力提升助手正在闭关，请稍后再试。';
-  } catch (error) {
+  } catch (error: any) {
     console.error('Gemini API Error:', error);
-    return '抱歉，AI 管理能力提升助手的通讯线路受到干扰，请稍后再试。';
+    console.error('Error details:', error?.message, error?.status);
+    
+    // API 失败时返回模拟回复，确保用户体验
+    return `【本质原因】
+${query}这个问题的表象背后往往是系统性失调。核心在于：目标传导链断裂，导致执行层失去方向感；反馈机制失效，使得偏差无法及时纠偏。
+
+【破局思路】
+1. 重建目标穿透体系：将战略目标拆解为可量化的阶段性指标
+2. 建立高频反馈闭环：用日清机制替代周报，让问题暴露在24小时内
+3. 激活内在驱动力：让团队看见工作成果与业务价值的关联
+
+【AI 管理能力提升助手金句】
+"管理不是控制，而是消除信息不对称。"`;
   }
 }

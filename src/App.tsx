@@ -1,8 +1,10 @@
+// Refactored to use AppContext - 2026-03-27
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage, StudyRecord, SimulationRecord } from './types';
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
 import { generateManagementFeedback } from './services/gemini';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { AppProvider, useApp } from './contexts/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { SimulationEngine } from './components/SimulationEngine';
@@ -19,121 +21,63 @@ import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, Me
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <AppProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </AppProvider>
   );
 }
 
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [view, setView] = useState<AppView>('home');
+  
+  // 从 AppContext 获取全局状态
+  const app = useApp();
+  const {
+    isLoggedIn,
+    setIsLoggedIn,
+    view,
+    setView,
+    isBriefingMode,
+    setIsBriefingMode,
+    context,
+    setContext,
+    userStats,
+    setUserStats,
+    history,
+    setHistory,
+    studyRecords,
+    setStudyRecords,
+    practiceRecords,
+    setPracticeRecords,
+    experts,
+    setExperts,
+    recordStudyAction,
+    recordPracticeAction,
+    handleTrackInteraction,
+  } = app;
+
+  // 本地 UI 状态（不需要全局共享）
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingQuery, setPendingQuery] = useState('');
-  const [context, setContext] = useState<ProfileContext>(() => {
-    const saved = localStorage.getItem('saodiseng_context');
-    return saved ? JSON.parse(saved) : {
-      businessStage: '快速扩张期',
-      teamStatus: '人心浮动中',
-      leadershipStyle: '强势结果导向',
-      managementMode: '互联网敏捷模式',
-      span: 8,
-      levels: 2,
-      composition: ['研发', '产品'],
-      pressure: 6,
-      decisionMode: '民主决策',
-      memo: ''
-    };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('saodiseng_context', JSON.stringify(context));
-  }, [context]);
-
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [diagnosticContext, setDiagnosticContext] = useState<DiagnosticContext | null>(null);
   const [selectedCase, setSelectedCase] = useState<ExpertCase | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<any | null>(null);
   const [activePrescription, setActivePrescription] = useState<Prescription | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [studyRecords, setStudyRecords] = useState<StudyRecord[]>(() => {
-    const saved = localStorage.getItem('saodiseng_study_records');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [practiceRecords, setPracticeRecords] = useState<SimulationRecord[]>(() => {
-    const saved = localStorage.getItem('saodiseng_practice_records');
-    return saved ? JSON.parse(saved) : [];
-  });
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [aiFeedback, setAiFeedback] = useState<string>('');
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [showProfilePopup, setShowProfilePopup] = useState(false);
-  const [isBriefingMode, setIsBriefingMode] = useState(false);
   const [targetTopicId, setTargetTopicId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('全部');
   const [sortBy, setSortBy] = useState<'default' | 'practiceCount' | 'accuracyRate'>('default');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [userStats, setUserStats] = useState<UserStats>(() => {
-    const saved = localStorage.getItem('saodiseng_user_stats');
-    return saved ? JSON.parse(saved) : {
-      points: 1200,
-      medals: ['初出茅庐', '战地观察员'],
-      experience: '3-5年',
-      scale: '5-15人',
-      domain: '研发',
-      bookmarks: [],
-      likes: []
-    };
-  });
 
-  const [experts, setExperts] = useState<Expert[]>(EXPERTS);
-
-  useEffect(() => {
-    localStorage.setItem('saodiseng_user_stats', JSON.stringify(userStats));
-  }, [userStats]);
-
-  useEffect(() => {
-    localStorage.setItem('saodiseng_study_records', JSON.stringify(studyRecords));
-  }, [studyRecords]);
-
-  useEffect(() => {
-    localStorage.setItem('saodiseng_practice_records', JSON.stringify(practiceRecords));
-  }, [practiceRecords]);
-
-  // 记录学习行为
-  const recordStudyAction = (topic: Topic, expert: Expert, action: 'view' | 'bookmark' | 'share', duration: number = 0) => {
-    const newRecord: StudyRecord = {
-      id: `study-${Date.now()}`,
-      topicId: topic.id,
-      topicTitle: topic.title,
-      expertName: expert.name,
-      expertTitle: expert.title,
-      action,
-      timestamp: Date.now(),
-      duration,
-    };
-    setStudyRecords(prev => [newRecord, ...prev].slice(0, 100)); // 保留最近100条
-  };
-
-  // 记录演练行为
-  const recordPracticeAction = (scenario: any, selectedOption: string, isCorrect: boolean, timeSpent: number) => {
-    const newRecord: SimulationRecord = {
-      id: `practice-${Date.now()}`,
-      scenarioId: scenario.id,
-      scenarioTitle: scenario.description,
-      category: '常规管理', // 可以从scenario中提取
-      selectedOption,
-      isCorrect,
-      impact: scenario.options.find((o: any) => o.id === selectedOption)?.impact || { morale: 0, efficiency: 0, retention: 0 },
-      timestamp: Date.now(),
-      timeSpent,
-    };
-    setPracticeRecords(prev => [newRecord, ...prev].slice(0, 100));
-  };
 
   const ExpertProfileViewWrapper = ({ experts, onBook, onViewCase }: { experts: Expert[], onBook: (id: string) => void, onViewCase: (caseId: string, expertId: string) => void }) => {
     const { expertId } = useParams<{ expertId: string }>();
@@ -151,52 +95,6 @@ function AppContent() {
     );
   };
 
-  const handleTrackInteraction = useCallback((caseId: string, type: 'click' | 'play' | 'bookmark' | 'like' | 'comment') => {
-    const expertCase = EXPERT_CASES[caseId];
-    if (!expertCase) return;
-
-    setExperts(prev => {
-      return prev.map(expert => {
-        if (expert.id === expertCase.expertId) {
-          const newStats = { ...expert.stats };
-          if (type === 'click') newStats.clicks++;
-          if (type === 'play') newStats.plays++;
-          if (type === 'bookmark') newStats.bookmarks++;
-          if (type === 'like') newStats.likes++;
-          if (type === 'comment') newStats.comments++;
-
-          // Calculate new points based on formula:
-          // Clicks * 1 + Plays * 2 + (Bookmarks + Likes + Comments) * 5
-          const newPoints = (newStats.clicks * 1) + 
-                           (newStats.plays * 2) + 
-                           ((newStats.bookmarks + newStats.likes + newStats.comments) * 5);
-
-          return { ...expert, stats: newStats, points: newPoints };
-        }
-        return expert;
-      }).sort((a, b) => b.points - a.points);
-    });
-
-    if (type === 'bookmark') {
-      setUserStats(prev => {
-        const isBookmarked = prev.bookmarks?.includes(caseId);
-        const newBookmarks = isBookmarked 
-          ? prev.bookmarks?.filter(id => id !== caseId) 
-          : [...(prev.bookmarks || []), caseId];
-        return { ...prev, bookmarks: newBookmarks };
-      });
-    }
-
-    if (type === 'like') {
-      setUserStats(prev => {
-        const isLiked = prev.likes?.includes(caseId);
-        const newLikes = isLiked 
-          ? prev.likes?.filter(id => id !== caseId) 
-          : [...(prev.likes || []), caseId];
-        return { ...prev, likes: newLikes };
-      });
-    }
-  }, []);
 
   const checkAuthAndExecute = (action: () => void) => {
     if (!isLoggedIn) {
@@ -458,7 +356,7 @@ function AppContent() {
         onFollowUp={(q) => handleSearch(q, diagnosticContext)}
         isGeneratingFeedback={isGeneratingFeedback}
         onUpdateHistory={handleUpdateHistory}
-        initialChatHistory={history.find(h => h.id === activeHistoryId)?.chatHistory || []}
+        chatHistory={history.find(h => h.id === activeHistoryId)?.chatHistory || []}
         relatedTopics={
           topic.relatedIds 
             ? TOPICS.filter(t => topic.relatedIds?.includes(t.id))
