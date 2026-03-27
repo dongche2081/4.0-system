@@ -1,5 +1,5 @@
 // Refactored to use AppContext - 2026-03-27
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage, StudyRecord, SimulationRecord } from './types';
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
 import { generateManagementFeedback } from './services/gemini';
@@ -16,8 +16,16 @@ import { ExpertCaseDetail } from './components/ExpertCaseDetail';
 import { ExpertLeaderboard } from './components/ExpertLeaderboard';
 import { ExpertProfileView } from './components/ExpertProfileView';
 import { HistoryView } from './components/HistoryView';
+import {
+  ExpertProfileViewWrapper,
+  TacticalBriefingWrapper,
+  ExpertCaseDetailWrapper
+} from './components/wrappers';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare, X, Users, Target, ArrowUpDown } from 'lucide-react';
+
+// 懒加载页面组件
+const PracticePage = lazy(() => import('./pages/PracticePage'));
 
 export default function App() {
   return (
@@ -77,23 +85,6 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('全部');
   const [sortBy, setSortBy] = useState<'default' | 'practiceCount' | 'accuracyRate'>('default');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-
-  const ExpertProfileViewWrapper = ({ experts, onBook, onViewCase }: { experts: Expert[], onBook: (id: string) => void, onViewCase: (caseId: string, expertId: string) => void }) => {
-    const { expertId } = useParams<{ expertId: string }>();
-    const expert = experts.find(e => e.id === expertId);
-
-    if (!expert) return <div className="flex items-center justify-center h-full text-slate-400">专家加载中...</div>;
-
-    return (
-      <ExpertProfileView 
-        expert={expert} 
-        onBack={() => navigate('/')} 
-        onBook={() => onBook(expert.id)}
-        onViewCase={(caseId) => onViewCase(caseId, expert.id)}
-      />
-    );
-  };
 
 
   const checkAuthAndExecute = (action: () => void) => {

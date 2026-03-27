@@ -81,6 +81,9 @@ export function useAppState() {
   // 专家列表（用于 handleTrackInteraction）
   const [experts, setExperts] = useState<Expert[]>(EXPERTS);
 
+  // 目标话题ID（用于页面间跳转）
+  const [targetTopicId, setTargetTopicId] = useState<string | null>(null);
+
   // 记录学习行为
   const recordStudyAction = (topic: Topic, expert: Expert, action: 'view' | 'bookmark' | 'share', duration: number = 0) => {
     const newRecord: StudyRecord = {
@@ -180,6 +183,8 @@ export function useAppState() {
     setPracticeRecords,
     experts,
     setExperts,
+    targetTopicId,
+    setTargetTopicId,
     // 业务函数
     recordStudyAction,
     recordPracticeAction,
