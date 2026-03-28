@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ExpertCase } from '../types';
+import { ExpertCase, Expert } from '../types';
+import { EXPERTS } from '../data';
 import {
-  ChevronLeft,
-  Share2,
   Play,
   Pause,
-  RotateCcw,
-  RotateCw,
   Maximize2,
   Check,
   Users,
@@ -20,7 +17,10 @@ import {
   Send,
   Hash,
   MessageSquare,
-  MoreHorizontal
+  MoreHorizontal,
+  Share2,
+  Clock,
+  Eye
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -43,10 +43,11 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
 }) => {
   const [searchParams] = useSearchParams();
   
+  // 获取专家信息
+  const expert = EXPERTS.find(e => e.id === expertCase.expertId);
+  
   // 各图标的状态管理
-  // 图标2：点赞状态 - 点击切换
   const [isLiked, setIsLiked] = useState(initialIsLiked);
-  // 图标3：收藏状态 - 点击切换
   const [isBookmarked, setIsBookmarked] = useState(initialIsBookmarked);
   
   // 分享下拉菜单状态
@@ -82,16 +83,37 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
   ]);
   const [commentFilter, setCommentFilter] = useState<'all' | 'featured'>('all');
   
+  // Video State
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [videoSpeed, setVideoSpeed] = useState(1);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+
+  // Audio State
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  const videoSectionRef = useRef<HTMLDivElement>(null);
+  const contentSectionRef = useRef<HTMLDivElement>(null);
+  const shareDropdownRef = useRef<HTMLDivElement>(null);
+  const folderDropdownRef = useRef<HTMLDivElement>(null);
+
+  const autoFocus = propAutoFocus || searchParams.get('type') as any;
+
   // 显示 Toast
   const showToast = (message: string, type: 'success' | 'info' = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
   
-  // ==================== 图标1：分享 ====================
+  // ==================== 分享功能 ====================
   const handleShareClick = () => {
     setShowShareDropdown(!showShareDropdown);
-    setShowFolderDropdown(false); // 关闭其他下拉
+    setShowFolderDropdown(false);
   };
   
   const handleCopyLink = () => {
@@ -110,7 +132,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     setShowTeamShareModal(true);
   };
   
-  // ==================== 图标2：点赞（切换） ====================
+  // ==================== 点赞功能 ====================
   const handleLikeToggle = () => {
     setIsLiked(!isLiked);
     showToast(isLiked ? '已取消点赞' : '已点赞！', isLiked ? 'info' : 'success');
@@ -119,18 +141,15 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     }
   };
   
-  // ==================== 图标3：收藏（切换） ====================
+  // ==================== 收藏功能 ====================
   const handleBookmarkToggle = () => {
     if (!isBookmarked) {
-      // 未收藏 -> 收藏
       setIsBookmarked(true);
       showToast('已收藏！', 'success');
-      // 自动打开收藏夹下拉菜单
       setTimeout(() => {
         setShowFolderDropdown(true);
       }, 200);
     } else {
-      // 已收藏 -> 取消收藏
       setIsBookmarked(false);
       showToast('已取消收藏', 'info');
     }
@@ -171,33 +190,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     setShowFolderDropdown(false);
     showToast(`已保存到「${folder}」`, 'success');
   };
-  
-  // Video State
-  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
-  const [videoSpeed, setVideoSpeed] = useState(1);
-  const [videoDuration, setVideoDuration] = useState(0);
-  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
-  const [hasTrackedVideoPlay, setHasTrackedVideoPlay] = useState(false);
-  
-  // Audio State
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
-  const [hasTrackedAudioPlay, setHasTrackedAudioPlay] = useState(false);
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  
-  const videoSectionRef = useRef<HTMLDivElement>(null);
-  const audioSectionRef = useRef<HTMLDivElement>(null);
-  const contentSectionRef = useRef<HTMLDivElement>(null);
-  const shareDropdownRef = useRef<HTMLDivElement>(null);
-  const folderDropdownRef = useRef<HTMLDivElement>(null);
-  
-  // 使用 ref 确保 onTrackInteraction 只被调用一次
-  const hasTrackedClick = useRef(false);
-
-  const autoFocus = propAutoFocus || searchParams.get('type') as any;
 
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -214,34 +206,23 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Track CTR on load - 暂时禁用自动跟踪以避免无限循环
-  // useEffect(() => {
-  //   if (onTrackInteraction && !hasTrackedClick.current) {
-  //     hasTrackedClick.current = true;
-  //     onTrackInteraction('click');
-  //   }
-  // }, [onTrackInteraction]);
-
-  // 仅在初始加载时执行一次自动滚动，避免与父容器滚动冲突
+  // 自动滚动到指定媒体区域
   useEffect(() => {
     if (!autoFocus) return;
     
-    // 延迟执行，确保父容器已准备好
     const timer = setTimeout(() => {
       let targetRef = null;
       if (autoFocus === 'video') targetRef = videoSectionRef.current;
-      else if (autoFocus === 'audio') targetRef = audioSectionRef.current;
       else if (autoFocus === 'text') targetRef = contentSectionRef.current;
       
       if (targetRef) {
-        // 使用 scrollTo 而不是 scrollIntoView，避免与父容器冲突
-        const top = targetRef.offsetTop - 100; // 留出顶部空间
+        const top = targetRef.offsetTop - 100;
         window.scrollTo({ top, behavior: 'smooth' });
       }
     }, 100);
     
     return () => clearTimeout(timer);
-  }, []); // 空依赖数组，只在挂载时执行一次
+  }, []);
 
   const toggleVideo = () => {
     if (videoRef.current) {
@@ -249,11 +230,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
         videoRef.current.pause();
       } else {
         videoRef.current.play();
-        // 暂时禁用播放跟踪以避免无限循环
-        // if (!hasTrackedVideoPlay && onTrackInteraction) {
-        //   onTrackInteraction('play');
-        //   setHasTrackedVideoPlay(true);
-        // }
       }
       setIsPlayingVideo(!isPlayingVideo);
     }
@@ -273,19 +249,8 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
         audioRef.current.pause();
       } else {
         audioRef.current.play();
-        // 暂时禁用播放跟踪以避免无限循环
-        // if (!hasTrackedAudioPlay && onTrackInteraction) {
-        //   onTrackInteraction('play');
-        //   setHasTrackedAudioPlay(true);
-        // }
       }
       setIsPlayingAudio(!isPlayingAudio);
-    }
-  };
-
-  const skipAudio = (seconds: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime += seconds;
     }
   };
 
@@ -304,209 +269,266 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
   };
 
   return (
-    <div className="h-full bg-slate-50 overflow-y-auto pt-16 pb-20">
-      {/* 固定 Header - fixed 定位，避开左侧边栏 */}
-      <header className="fixed top-0 left-16 lg:left-72 right-0 z-50 bg-white border-b border-slate-100 shadow-sm px-4 md:px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-          >
-            <ChevronLeft className="w-6 h-6 text-slate-600" />
-          </button>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 truncate max-w-[200px] md:max-w-md">
+    <div className="min-h-full bg-slate-50 pb-24">
+      {/* 内容区域 */}
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+        
+        {/* 1. 标题区 - 白色卡片 */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-lg shadow-sm p-6"
+        >
+          <h1 className="text-2xl font-bold text-slate-900 leading-tight mb-4">
             {expertCase.title}
           </h1>
-        </div>
-      </header>
-
-      {/* 内容区域 */}
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        
-        {/* Section 1: Video Center */}
-        <section ref={videoSectionRef} className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
-          <div className="p-6 border-b border-slate-100">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <div className="w-1 h-5 bg-amber-400 rounded-full"></div>
-              视频中心
-            </h2>
-          </div>
-          <div className="aspect-video bg-black relative group">
-            <video 
-              ref={videoRef}
-              className="w-full h-full"
-              poster={`https://picsum.photos/seed/${expertCase.id}-video/1280/720`}
-              onTimeUpdate={() => setVideoCurrentTime(videoRef.current?.currentTime || 0)}
-              onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
-              onEnded={() => setIsPlayingVideo(false)}
-            >
-              <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
-            </video>
+          
+          {/* 金色分隔线 */}
+          <div className="w-12 h-0.5 bg-amber-400 mb-4"></div>
+          
+          {/* 专家信息 - 简化版 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
+                {expert?.avatar ? (
+                  <img src={expert.avatar} alt={expert.name} className="w-full h-full object-cover" />
+                ) : (
+                  expert?.name?.[0] || '专'
+                )}
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">{expert?.name || '专家'}</div>
+                <div className="text-xs text-slate-500">{expert?.title || ''}</div>
+              </div>
+            </div>
             
-            {/* Custom Controls Overlay */}
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-              <div className="bg-black/40 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between text-white">
-                <div className="flex items-center gap-4">
-                  <button onClick={toggleVideo} className="hover:text-amber-400 transition-colors">
-                    {isPlayingVideo ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
-                  </button>
-                  <div className="text-xs font-mono">
-                    {formatTime(videoCurrentTime)} / {formatTime(videoDuration)}
+            <div className="flex items-center gap-4 text-xs text-slate-400">
+              <span className="flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" />
+                {expertCase.views?.toLocaleString() || '1,234'}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                {expertCase.duration || '15 分钟'}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 2. 视频区块 - 白色卡片 */}
+        {expertCase.videoUrl && (
+          <motion.div 
+            ref={videoSectionRef}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-lg shadow-sm p-6"
+          >
+            <div className="aspect-video bg-black relative group rounded-lg overflow-hidden">
+              <video 
+                ref={videoRef}
+                className="w-full h-full"
+                poster={`https://picsum.photos/seed/${expertCase.id}-video/1280/720`}
+                onTimeUpdate={() => setVideoCurrentTime(videoRef.current?.currentTime || 0)}
+                onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
+                onEnded={() => setIsPlayingVideo(false)}
+              >
+                <source src={expertCase.videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4'} type="video/mp4" />
+              </video>
+              
+              {/* Custom Controls Overlay */}
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                <div className="bg-black/40 backdrop-blur-md rounded-xl p-3 flex items-center justify-between text-white">
+                  <div className="flex items-center gap-3">
+                    <button onClick={toggleVideo} className="hover:text-amber-400 transition-colors">
+                      {isPlayingVideo ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                    </button>
+                    <div className="text-xs font-mono">
+                      {formatTime(videoCurrentTime)} / {formatTime(videoDuration)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={handleVideoSpeed}
+                      className="text-xs font-bold px-2 py-0.5 border border-white/30 rounded hover:bg-white/20 transition-all"
+                    >
+                      {videoSpeed}x
+                    </button>
+                    <button className="hover:text-amber-400 transition-colors">
+                      <Maximize2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={handleVideoSpeed}
-                    className="text-xs font-bold px-2 py-1 border border-white/30 rounded hover:bg-white/20 transition-all"
-                  >
-                    {videoSpeed}x
-                  </button>
-                  <button className="hover:text-amber-400 transition-colors">
-                    <Maximize2 className="w-5 h-5" />
-                  </button>
-                </div>
               </div>
-            </div>
-            
-            {!isPlayingVideo && (
-              <button 
-                onClick={toggleVideo}
-                className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform"
-              >
-                <div className="w-20 h-20 bg-amber-400 rounded-full flex items-center justify-center shadow-2xl shadow-amber-400/40">
-                  <Play className="w-10 h-10 text-white fill-current ml-1" />
-                </div>
-              </button>
-            )}
-          </div>
-          <div className="p-6">
-            <h3 className="font-bold text-slate-800 mb-2">{expertCase.title} - 实战拆解视频</h3>
-            <p className="text-sm text-slate-500">主讲人：{expertCase.expertName}</p>
-          </div>
-        </section>
-
-        {/* Section 2: Content Body */}
-        <section ref={contentSectionRef} className="bg-white rounded-2xl p-6 md:p-8 border border-slate-200 shadow-sm">
-          
-          {/* 音频播放器 - 嵌入到正文顶部 */}
-          <audio
-            ref={audioRef}
-            onTimeUpdate={() => setAudioCurrentTime(audioRef.current?.currentTime || 0)}
-            onLoadedMetadata={() => setAudioDuration(audioRef.current?.duration || 0)}
-            onEnded={() => setIsPlayingAudio(false)}
-          >
-            <source src="https://www.w3schools.com/html/horse.mp3" type="audio/mpeg" />
-          </audio>
-          
-          {/* 得到APP风格的音频播放器 - 可拖动进度条 */}
-          <div className="flex items-center gap-4 bg-slate-50 rounded-xl p-4 mb-8">
-            {/* 播放按钮 - 橙色圆形 */}
-            <button
-              onClick={toggleAudio}
-              className="w-12 h-12 bg-amber-400 rounded-full flex items-center justify-center shadow-lg shadow-amber-400/20 hover:scale-105 transition-all flex-shrink-0"
-            >
-              {isPlayingAudio ? <Pause className="w-5 h-5 text-white fill-current" /> : <Play className="w-5 h-5 text-white fill-current ml-0.5" />}
-            </button>
-            
-            {/* 音频信息 */}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-slate-800 truncate">
-                {expertCase.title} - 音频解读
-              </div>
-              {/* 可拖动的进度条 */}
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs text-slate-400 w-10 text-right">{formatTime(audioCurrentTime)}</span>
-                <div
-                  className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden cursor-pointer relative"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
-                    if (audioRef.current) {
-                      audioRef.current.currentTime = percent * audioDuration;
-                    }
-                  }}
-                >
-                  <div
-                    className="h-full bg-amber-400 transition-all duration-100"
-                    style={{ width: `${(audioCurrentTime / audioDuration) * 100 || 0}%` }}
-                  />
-                  {/* 拖动滑块 */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-amber-400 rounded-full shadow-md cursor-grab active:cursor-grabbing"
-                    style={{ left: `calc(${(audioCurrentTime / audioDuration) * 100 || 0}% - 6px)` }}
-                  />
-                </div>
-                <span className="text-xs text-slate-400 w-10">{formatTime(audioDuration)}</span>
-              </div>
-            </div>
-          </div>
-          
-          <article className="prose prose-slate max-w-none">
-            <div className="mb-8 rounded-2xl overflow-hidden">
-              <img
-                src={`https://picsum.photos/seed/${expertCase.id}-content/1200/600`}
-                alt="实战场景"
-                className="w-full h-auto"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            
-            <div className="space-y-6 text-slate-700 leading-relaxed text-lg">
-              {expertCase.content.split('\n\n').map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
               
-              {expertCase.expertInsight && (
-                <div className="mt-12 p-8 bg-slate-50 rounded-3xl border border-slate-100 italic relative">
-                  <div className="absolute -top-4 left-8 px-4 py-1 bg-amber-400 text-white text-xs font-bold rounded-full">专家点评</div>
-                  <p className="text-slate-600">"{expertCase.expertInsight}"</p>
-                </div>
+              {!isPlayingVideo && (
+                <button 
+                  onClick={toggleVideo}
+                  className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform"
+                >
+                  <div className="w-14 h-14 bg-amber-400 rounded-full flex items-center justify-center shadow-xl">
+                    <Play className="w-7 h-7 text-white fill-current ml-0.5" />
+                  </div>
+                </button>
               )}
             </div>
-          </article>
-        </section>
+          </motion.div>
+        )}
 
-        {/* Section 4: 评论区 */}
-        <section className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-          {/* 我的留言 - 输入区 */}
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">我的留言</h3>
-            <div className="flex gap-4">
-              {/* 用户头像 */}
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                我
+        {/* 3. 音频+正文合并区块 - 白色卡片 */}
+        <motion.div 
+          ref={contentSectionRef}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-lg shadow-sm p-6"
+        >
+          {/* 音频播放器 */}
+          {expertCase.audioUrl && (
+            <>
+              <audio
+                ref={audioRef}
+                onTimeUpdate={() => setAudioCurrentTime(audioRef.current?.currentTime || 0)}
+                onLoadedMetadata={() => setAudioDuration(audioRef.current?.duration || 0)}
+                onEnded={() => setIsPlayingAudio(false)}
+              >
+                <source src={expertCase.audioUrl || 'https://www.w3schools.com/html/horse.mp3'} type="audio/mpeg" />
+              </audio>
+              
+              <div className="flex items-center gap-4 bg-slate-50 rounded-xl p-4 mb-6">
+                <button
+                  onClick={toggleAudio}
+                  className="w-12 h-12 bg-amber-400 rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-all flex-shrink-0"
+                >
+                  {isPlayingAudio ? <Pause className="w-5 h-5 text-white fill-current" /> : <Play className="w-5 h-5 text-white fill-current ml-0.5" />}
+                </button>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-slate-800 truncate">
+                    {expertCase.title} - 音频解读
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-slate-400 w-10 text-right">{formatTime(audioCurrentTime)}</span>
+                    <div
+                      className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden cursor-pointer relative"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const percent = (e.clientX - rect.left) / rect.width;
+                        if (audioRef.current) {
+                          audioRef.current.currentTime = percent * audioDuration;
+                        }
+                      }}
+                    >
+                      <div
+                        className="h-full bg-amber-400 transition-all duration-100"
+                        style={{ width: `${(audioCurrentTime / audioDuration) * 100 || 0}%` }}
+                      />
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-amber-400 rounded-full shadow-md cursor-grab active:cursor-grabbing"
+                        style={{ left: `calc(${(audioCurrentTime / audioDuration) * 100 || 0}% - 6px)` }}
+                      />
+                    </div>
+                    <span className="text-xs text-slate-400 w-10">{formatTime(audioDuration)}</span>
+                  </div>
+                </div>
               </div>
               
-              {/* 输入框区域 */}
+              {/* 分隔线 */}
+              <div className="h-px bg-slate-200 mb-6"></div>
+            </>
+          )}
+          
+          {/* 正文内容 */}
+          <div className="prose prose-slate max-w-none">
+            {expertCase.coverImage && (
+              <div className="mb-6 rounded-xl overflow-hidden">
+                <img
+                  src={expertCase.coverImage}
+                  alt="实战场景"
+                  className="w-full h-auto"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            )}
+            
+            <div className="space-y-4 text-slate-700 leading-relaxed">
+              {expertCase.content.split('\n\n').map((para, i) => (
+                <p key={i} className="text-base">{para}</p>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 4. 讨论区 - 白色卡片 */}
+        <motion.div 
+          id="comment-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-lg shadow-sm p-6"
+        >
+          {/* 讨论区标题 */}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-amber-400" />
+              讨论区
+              <span className="text-sm font-normal text-slate-400">({comments.length})</span>
+            </h3>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setCommentFilter('all')}
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  commentFilter === 'all' 
+                    ? 'bg-slate-900 text-white' 
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                全部
+              </button>
+              <button 
+                onClick={() => setCommentFilter('featured')}
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  commentFilter === 'featured' 
+                    ? 'bg-slate-900 text-white' 
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                精选
+              </button>
+            </div>
+          </div>
+          
+          {/* 金色分隔线 */}
+          <div className="w-12 h-0.5 bg-amber-400 mb-6"></div>
+          
+          {/* 评论输入 */}
+          <div className="mb-6">
+            <div className="flex gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                我
+              </div>
               <div className="flex-1">
                 <div className="bg-slate-50 rounded-xl p-4">
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="写留言，与作者互动"
+                    placeholder="分享你的观点，与专家互动..."
                     className="w-full bg-transparent border-none outline-none resize-none text-slate-700 placeholder-slate-400 min-h-[80px]"
                     maxLength={5000}
                   />
                   <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-4">
-                      {/* 话题标签 */}
-                      <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors">
-                        <Hash className="w-4 h-4" />
-                        <span className="text-sm">话题</span>
-                      </button>
-                      {/* 公开/私密切换 */}
-                      <button className="flex items-center gap-1 text-amber-500 hover:text-amber-600 transition-colors">
-                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span className="text-sm font-medium">公开</span>
-                      </button>
-                    </div>
+                    <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-sm">
+                      <Hash className="w-4 h-4" />
+                      <span>话题</span>
+                    </button>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-400">{commentText.length} / 5000</span>
-                      <button
+                      <span className="text-xs text-slate-400">{commentText.length}/5000</span>
+                      <button 
                         onClick={handleSubmitComment}
                         disabled={!commentText.trim()}
-                        className="px-6 py-2 bg-amber-400 text-white text-sm font-medium rounded-full hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        className="px-4 py-2 bg-amber-400 text-white text-sm font-medium rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
+                        <Send className="w-4 h-4" />
                         发布
                       </button>
                     </div>
@@ -515,86 +537,49 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
               </div>
             </div>
           </div>
-
-          {/* 用户留言列表 */}
-          <div>
-            {/* 筛选标签 */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-6">
-                <h3 className="text-lg font-bold text-slate-900">用户留言</h3>
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setCommentFilter('all')}
-                    className={`text-sm font-medium transition-colors ${
-                      commentFilter === 'all' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    全部
-                  </button>
-                  <button
-                    onClick={() => setCommentFilter('featured')}
-                    className={`text-sm font-medium transition-colors ${
-                      commentFilter === 'featured' ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    精选
-                  </button>
+          
+          {/* 评论列表 */}
+          <div className="space-y-4">
+            {(commentFilter === 'featured'
+              ? comments.filter(c => c.isOfficial)
+              : comments
+            ).map((comment) => (
+              <div key={comment.id} className="flex gap-3 pb-4 border-b border-slate-100 last:border-none">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
+                  comment.isOfficial
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+                    : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                }`}>
+                  {comment.avatar}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-slate-900 text-sm">{comment.author}</span>
+                    {comment.isOfficial && (
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 text-xs rounded">
+                        官方
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400">{comment.date}</span>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap text-sm">{comment.content}</p>
+                  
+                  <div className="flex items-center gap-4 mt-2">
+                    <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-xs">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>回复</span>
+                    </button>
+                    <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-xs">
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      <span>点赞</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-              <button className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-                筛选
-              </button>
-            </div>
-
-            {/* 评论列表 */}
-            <div className="space-y-6">
-              {(commentFilter === 'featured'
-                ? comments.filter(c => c.isOfficial)
-                : comments
-              ).map((comment) => (
-                <div key={comment.id} className="flex gap-4 pb-6 border-b border-slate-100 last:border-none">
-                  {/* 评论者头像 */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
-                    comment.isOfficial
-                      ? 'bg-gradient-to-br from-blue-500 to-blue-600'
-                      : 'bg-gradient-to-br from-slate-400 to-slate-500'
-                  }`}>
-                    {comment.avatar}
-                  </div>
-                  
-                  {/* 评论内容 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-bold text-slate-900">{comment.author}</span>
-                      {comment.isOfficial && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs font-medium rounded-full">
-                          官方
-                        </span>
-                      )}
-                      <span className="text-xs text-slate-400">{comment.date}</span>
-                    </div>
-                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-                    
-                    {/* 评论操作 */}
-                    <div className="flex items-center gap-6 mt-3">
-                      <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-sm">
-                        <MessageSquare className="w-4 h-4" />
-                        <span>回复</span>
-                      </button>
-                      <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-sm">
-                        <ThumbsUp className="w-4 h-4" />
-                        <span>点赞</span>
-                      </button>
-                      <button className="text-slate-400 hover:text-slate-600 transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        </section>
+        </motion.div>
       </div>
 
       {/* Toast 提示 */}
@@ -605,7 +590,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3"
           >
             {toast.type === 'success' ? (
               <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
@@ -652,7 +637,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
                 </button>
               </div>
               <div className="bg-slate-50 rounded-2xl p-8 mb-6">
-                {/* 二维码占位 */}
                 <div className="w-48 h-48 mx-auto bg-white rounded-xl p-4 shadow-sm">
                   <div className="w-full h-full bg-slate-200 rounded-lg flex items-center justify-center">
                     <div className="grid grid-cols-5 gap-1 w-32 h-32">
@@ -740,138 +724,133 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 底部操作栏 */}
-      <footer className="fixed bottom-0 left-16 lg:left-72 right-0 z-50 bg-white border-t border-slate-100 shadow-sm px-4 md:px-8 py-3 flex items-center justify-center gap-2">
-        {/* 图标群 - 从左到右：点赞、评论、收藏、分享 */}
-        <div className="flex items-center gap-1">
-          {/* ========== 图标1：点赞（大拇指） ========== */}
+      {/* 右下角悬浮操作按钮组 */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+        {/* 点赞 */}
+        <button
+          onClick={handleLikeToggle}
+          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+            isLiked
+              ? 'bg-amber-400 text-white'
+              : 'bg-white text-slate-400 hover:text-amber-400'
+          }`}
+          title={isLiked ? '已点赞' : '点赞'}
+        >
+          <ThumbsUp className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+        </button>
+        
+        {/* 评论 */}
+        <button
+          onClick={scrollToComment}
+          className="w-12 h-12 rounded-full bg-white shadow-lg text-slate-400 hover:text-amber-400 flex items-center justify-center transition-all duration-200 hover:scale-110"
+          title="写评论"
+        >
+          <MessageSquare className="w-5 h-5" />
+        </button>
+        
+        {/* 收藏 */}
+        <div className="relative" ref={folderDropdownRef}>
           <button
-            onClick={handleLikeToggle}
-            className={`p-2.5 rounded-xl transition-all duration-200 ${
-              isLiked
-                ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
-                : 'hover:bg-slate-100 text-slate-400'
+            onClick={handleBookmarkToggle}
+            className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+              isBookmarked
+                ? 'bg-amber-400 text-white'
+                : 'bg-white text-slate-400 hover:text-amber-400'
             }`}
-            title={isLiked ? '已点赞，点击取消' : '点赞'}
+            title={isBookmarked ? '已收藏' : '收藏'}
           >
-            <ThumbsUp className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+            <Star className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''}`} />
           </button>
           
-          {/* ========== 图标2：评论 ========== */}
-          <button
-            onClick={scrollToComment}
-            className="p-2.5 rounded-xl transition-all duration-200 hover:bg-slate-100 text-slate-400"
-            title="写评论"
-          >
-            <MessageSquare className="w-5 h-5" />
-          </button>
-          
-          {/* ========== 图标3：收藏（五角星） ========== */}
-          <div className="relative" ref={folderDropdownRef}>
-            <button
-              onClick={handleBookmarkToggle}
-              className={`p-2.5 rounded-xl transition-all duration-200 ${
-                isBookmarked
-                  ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
-                  : 'hover:bg-slate-100 text-slate-400'
-              }`}
-              title={isBookmarked ? '已收藏，点击取消' : '收藏'}
-            >
-              <Star className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''}`} />
-            </button>
-            
-            {/* 收藏夹下拉菜单 */}
-            <AnimatePresence>
-              {showFolderDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 overflow-hidden"
-                >
-                  <div className="px-4 py-2 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-50">
-                    选择收藏夹
-                  </div>
-                  {['未分类', 'Favorites', 'Tech Insights', '新建文件夹...'].map((folder, index) => (
-                    <button
-                      key={folder}
-                      onClick={() => handleFolderSelect(folder)}
-                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center justify-between ${
-                        selectedFolder === folder
-                          ? 'bg-amber-100 text-amber-600'
-                          : 'text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        {folder === '新建文件夹...' ? (
-                          <FolderPlus className="w-4 h-4" />
-                        ) : (
-                          <Star className={`w-4 h-4 ${selectedFolder === folder ? 'fill-current' : ''}`} />
-                        )}
-                        {folder}
-                      </span>
-                      {selectedFolder === folder && folder !== '新建文件夹...' && (
-                        <Check className="w-4 h-4" />
+          <AnimatePresence>
+            {showFolderDropdown && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 overflow-hidden"
+              >
+                <div className="px-4 py-2 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-50">
+                  选择收藏夹
+                </div>
+                {['未分类', '管理干货', '团队建设', '新建文件夹...'].map((folder) => (
+                  <button
+                    key={folder}
+                    onClick={() => handleFolderSelect(folder)}
+                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center justify-between ${
+                      selectedFolder === folder
+                        ? 'bg-amber-100 text-amber-600'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {folder === '新建文件夹...' ? (
+                        <FolderPlus className="w-4 h-4" />
+                      ) : (
+                        <Star className={`w-4 h-4 ${selectedFolder === folder ? 'fill-current' : ''}`} />
                       )}
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          
-          {/* ========== 图标4：分享 ========== */}
-          <div className="relative" ref={shareDropdownRef}>
-            <button
-              onClick={handleShareClick}
-              className={`p-2.5 rounded-xl transition-all duration-200 ${
-                showShareDropdown
-                  ? 'bg-amber-100 text-amber-600'
-                  : 'hover:bg-slate-100 text-slate-400'
-              }`}
-              title="分享"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-            
-            {/* 分享下拉菜单 */}
-            <AnimatePresence>
-              {showShareDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 overflow-hidden"
-                >
-                  <button
-                    onClick={handleCopyLink}
-                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                  >
-                    <Link2 className="w-4 h-4 text-slate-400" />
-                    复制链接
+                      {folder}
+                    </span>
+                    {selectedFolder === folder && folder !== '新建文件夹...' && (
+                      <Check className="w-4 h-4" />
+                    )}
                   </button>
-                  <button
-                    onClick={handleWechatShare}
-                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                  >
-                    <MessageCircle className="w-4 h-4 text-green-500" />
-                    分享到微信
-                  </button>
-                  <button
-                    onClick={handleTeamShare}
-                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                  >
-                    <Users className="w-4 h-4 text-amber-500" />
-                    内部团队分享
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </footer>
+        
+        {/* 分享 */}
+        <div className="relative" ref={shareDropdownRef}>
+          <button
+            onClick={handleShareClick}
+            className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+              showShareDropdown
+                ? 'bg-amber-400 text-white'
+                : 'bg-white text-slate-400 hover:text-amber-400'
+            }`}
+            title="分享"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+          
+          <AnimatePresence>
+            {showShareDropdown && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute bottom-full right-0 mb-2 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 overflow-hidden"
+              >
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                >
+                  <Link2 className="w-4 h-4 text-slate-400" />
+                  复制链接
+                </button>
+                <button
+                  onClick={handleWechatShare}
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                >
+                  <MessageCircle className="w-4 h-4 text-green-500" />
+                  分享到微信
+                </button>
+                <button
+                  onClick={handleTeamShare}
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                >
+                  <Users className="w-4 h-4 text-amber-500" />
+                  内部团队分享
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 };

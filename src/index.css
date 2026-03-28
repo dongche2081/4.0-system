@@ -46,6 +46,23 @@
   --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* 隐藏滚动条但保留滚动功能 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 多行文本截断 */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 body {
   font-family: "PingFang SC", "Source Han Sans CN", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   background-color: var(--logic-grey);

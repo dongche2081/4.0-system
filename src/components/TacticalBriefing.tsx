@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Topic, Prescription, Expert, DiagnosticContext, ChatMessage } from '../types';
-import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check, ShieldAlert } from 'lucide-react';
+import { Topic, Prescription, Expert, DiagnosticContext, ChatMessage, ProfileContext } from '../types';
+import { FileText, Headphones, Video, ThumbsUp, ThumbsDown, X, Zap, Copy, Download, CornerRightDown, Play, MessageSquare, Search, Mic, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Pause, Volume2, Sparkles, Check, ShieldAlert, Award } from 'lucide-react';
 import { RichText } from './RichText';
 import { DigestCard } from './DigestCard';
 import { motion, AnimatePresence } from 'motion/react';
-import { generateManagementFeedback } from '../services/gemini';
+import { generateManagementFeedback, calculateExpertMatches, ExpertMatch } from '../services/ai-service';
 import { IntentionCapture } from './IntentionCapture';
 
 interface Props {
@@ -165,8 +165,18 @@ export const TacticalBriefing: React.FC<Props> = ({
     setDislikeText('');
   };
 
-  const matchedExperts = experts.filter(e => e.topics.includes(topic.id) || e.topics.includes(topic.title));
-  const expertResources = matchedExperts.length > 0 ? matchedExperts.slice(0, 3) : experts.slice(0, 3);
+  // 使用智能匹配算法
+  const expertMatches = useMemo(() => {
+    const matches = calculateExpertMatches(
+      topic.title,
+      context as ProfileContext,
+      experts.map(e => ({ id: e.id, topics: e.topics, tags: e.tags, resume: e.resume }))
+    );
+    return matches.slice(0, 3);
+  }, [topic, context, experts]);
+
+  const matchedExperts = expertMatches.map(m => experts.find(e => e.id === m.expertId)!).filter(Boolean);
+  const expertResources = matchedExperts.length > 0 ? matchedExperts : experts.slice(0, 3);
 
   const openModal = (expert: Expert, type: 'document' | 'audio' | 'video') => {
     setActiveExpertForModal(expert);
@@ -395,7 +405,9 @@ export const TacticalBriefing: React.FC<Props> = ({
                 <h3 className="text-[9px] font-black text-slate-400 tracking-widest uppercase">参考来源</h3>
               </div>
               <div className="space-y-3">
-                {expertResources.slice(0, 4).map(expert => (
+                {expertResources.slice(0, 4).map((expert, idx) => {
+                  const matchInfo = expertMatches.find(m => m.expertId === expert.id);
+                  return (
                   <div
                     key={expert.id}
                     className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm hover:shadow-md transition-all group hover:border-[#F2C94C]/30"
@@ -410,16 +422,33 @@ export const TacticalBriefing: React.FC<Props> = ({
                         onClick={() => navigate(`/expert/${expert.id}`)}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-black text-slate-900 truncate">
-                          {expert.name}
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-black text-slate-900 truncate">
+                            {expert.name}
+                          </div>
+                          {matchInfo && idx === 0 && (
+                            <span className="px-2 py-0.5 bg-[#F2C94C]/10 text-[#F2C94C] text-[9px] font-bold rounded-full flex items-center gap-1">
+                              <Award className="w-3 h-3" />
+                              最佳匹配
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-slate-400 font-bold truncate">
                           {expert.title}
                         </div>
+                        {matchInfo && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-[#F2C94C] to-[#F2C94C]/70 rounded-full"
+                                style={{ width: `${matchInfo.score}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-slate-400">{matchInfo.score}分</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    
-                    {/* 媒体资源按钮 */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/expert/${expert.id}/case/c1?type=video`); }}
@@ -444,7 +473,8 @@ export const TacticalBriefing: React.FC<Props> = ({
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

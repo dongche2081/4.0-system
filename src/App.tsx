@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AppView, ProfileContext, Topic, HistoryItem, UserStats, Prescription, Expert, ExpertCase, DiagnosticContext, ChatMessage, StudyRecord, SimulationRecord } from './types';
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
-import { generateManagementFeedback } from './services/gemini';
+import { generateManagementFeedback } from './services/ai-service';
+import { backupUserData, checkCloudBackup, restoreFromBackup, shouldBackup, getLastBackupTime } from './services/backup';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './contexts/AppContext';
 import { Sidebar } from './components/Sidebar';
@@ -12,20 +13,22 @@ import { IntentionCapture } from './components/IntentionCapture';
 import { DiagnoseConsent } from './components/DiagnoseConsent';
 import { DiagnoseEngine } from './components/DiagnoseEngine';
 import { TacticalBriefing } from './components/TacticalBriefing';
+import { StudyDetailView } from './components/StudyDetailView';
+import { DiagnosticResultView } from './components/DiagnosticResultView';
+import { DiagnoseResultView } from './components/DiagnoseResultView';
 import { ExpertCaseDetail } from './components/ExpertCaseDetail';
 import { ExpertLeaderboard } from './components/ExpertLeaderboard';
 import { ExpertProfileView } from './components/ExpertProfileView';
 import { HistoryView } from './components/HistoryView';
 import {
   ExpertProfileViewWrapper,
-  TacticalBriefingWrapper,
   ExpertCaseDetailWrapper
 } from './components/wrappers';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare, X, Users, Target, ArrowUpDown } from 'lucide-react';
+import { Shield, ChevronRight, ArrowRight, Flame, Trophy, BookOpen, Activity, MessageSquare, X, Users, Target, ArrowUpDown, Sword } from 'lucide-react';
 
 // 懒加载页面组件
-const PracticePage = lazy(() => import('./pages/PracticePage'));
+// const PracticePage = lazy(() => import('./pages/PracticePage')); // 已删除，使用 PracticeRoute 替代
 
 export default function App() {
   return (
@@ -69,6 +72,64 @@ function AppContent() {
 
   // 本地 UI 状态（不需要全局共享）
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isBackupRestored, setIsBackupRestored] = useState(false);
+
+  // 自动备份逻辑：页面关闭前触发备份
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      backupUserData();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // 自动备份逻辑：每天首次打开检查云端备份并恢复
+  useEffect(() => {
+    const restoreBackup = async () => {
+      // 只在登录后执行一次
+      if (!isLoggedIn || isBackupRestored) return;
+
+      try {
+        // 检查是否需要从云端恢复（距离上次备份超过24小时或从未备份）
+        const lastBackupTime = getLastBackupTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        const shouldCheckCloud = !lastBackupTime || (Date.now() - lastBackupTime > oneDayMs);
+
+        if (shouldCheckCloud) {
+          console.log('[Backup] Checking cloud backup...');
+          const cloudBackup = await checkCloudBackup();
+          
+          if (cloudBackup) {
+            // 比较云端和本地数据的时间戳，使用较新的
+            const localTimestamp = lastBackupTime || 0;
+            const cloudTimestamp = cloudBackup.timestamp;
+
+            if (cloudTimestamp > localTimestamp) {
+              console.log('[Backup] Restoring from cloud backup...');
+              restoreFromBackup(cloudBackup);
+              // 刷新页面以应用恢复的数据
+              window.location.reload();
+              return;
+            }
+          }
+        }
+
+        // 如果不需要恢复，检查是否需要备份
+        if (shouldBackup()) {
+          backupUserData();
+        }
+      } catch (error) {
+        console.error('[Backup] Restore check failed:', error);
+      }
+
+      setIsBackupRestored(true);
+    };
+
+    restoreBackup();
+  }, [isLoggedIn, isBackupRestored]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingQuery, setPendingQuery] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
@@ -311,48 +372,56 @@ function AppContent() {
     }
   };
 
-  const TacticalBriefingWrapper = () => {
+  // 学一学详情页 Wrapper
+  const StudyDetailWrapper = () => {
     const { id } = useParams<{ id: string }>();
     const topic = TOPICS.find(t => t.id === id) || (selectedTopic?.id === id ? selectedTopic : null);
     
     if (!topic) return <div className="flex items-center justify-center h-full text-slate-400">话题加载中...</div>;
 
     return (
-      <TacticalBriefing 
+      <StudyDetailView
         topic={topic}
-        prescription={topic.id === 'diagnostic-result' ? {
-          truth: `### 研判真相：${diagnosticContext?.intentStage}\n\n**核心风险：** ${diagnosticContext?.riskAssessment}\n\n**干预进度：** ${diagnosticContext?.interventionProgress}\n\n**补充细节：** ${diagnosticContext?.details || '无'}\n\n--- \n\n基于您的团队处于 **${context.businessStage}** 且压力指数为 **${context.pressure}**，AI 管理能力提升助手建议：\n\n1. **立即对齐利益**：针对${diagnosticContext?.riskAssessment}，需在24小时内开启非正式面谈。\n2. **情绪缓冲**：考虑到${diagnosticContext?.interventionProgress}，建议引入第三方中立视角。`,
-          script: { opening: '“我们来聊聊这件事...”', responses: ['正在思考...'], closing: '“希望这能帮到您。”' },
-          redLines: []
-        } : topic.id === 'custom' ? {
-          truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
-          script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
-          redLines: ['正在划定红线...']
-        } : PRESCRIPTION_DATA[topic.id] || null}
         experts={EXPERTS}
         context={context}
-        diagnosticContext={diagnosticContext}
-        onNavigateToTopic={handleTopicClick}
         onNavigateToPractice={(id) => {
           setTargetTopicId(id);
           navigate('/practice');
         }}
         onNavigateToDiagnosis={(id) => {
           setTargetTopicId(id);
-          const topic = TOPICS.find(t => t.id === id);
-          if (topic) setPendingQuery(topic.title);
+          const t = TOPICS.find(topic => topic.id === id);
+          if (t) setPendingQuery(t.title);
           navigate('/diagnose-engine');
         }}
-        onExpertClick={handleExpertClick}
-        onFollowUp={(q) => handleSearch(q, diagnosticContext)}
-        isGeneratingFeedback={isGeneratingFeedback}
-        onUpdateHistory={handleUpdateHistory}
+      />
+    );
+  };
+
+  // 聊一聊诊断结果页 Wrapper
+  const DiagnosticResultWrapper = () => {
+    const topic = selectedTopic || { id: 'diagnostic-result', title: pendingQuery || '深度诊断结果', type: '战友最痛' } as Topic;
+    
+    return (
+      <DiagnosticResultView
+        topic={topic}
+        prescription={topic.id === 'diagnostic-result' ? {
+          truth: `### 研判真相：${diagnosticContext?.intentStage}\n\n**核心风险：** ${diagnosticContext?.riskAssessment}\n\n**干预进度：** ${diagnosticContext?.interventionProgress}\n\n**补充细节：** ${diagnosticContext?.details || '无'}\n\n--- \n\n基于您的团队处于 **${context.businessStage}** 且压力指数为 **${context.pressure}**，AI 管理能力提升助手建议：\n\n1. **立即对齐利益**：针对${diagnosticContext?.riskAssessment}，需在24小时内开启非正式面谈。\n2. **情绪缓冲**：考虑到${diagnosticContext?.interventionProgress}，建议引入第三方中立视角。`,
+          summary: '基于诊断结果生成个性化建议',
+          script: { opening: '“我们来聊聊这件事...”', responses: ['正在思考...'], closing: '“希望这能帮到您。”' },
+          redLines: ['避免情绪化决策', '避免单方面施压']
+        } : topic.id === 'custom' ? {
+          truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
+          summary: aiFeedback.split('\n\n')[1] || '生成建议中...',
+          script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
+          redLines: ['正在划定红线...']
+        } : PRESCRIPTION_DATA[topic.id] || null}
+        experts={EXPERTS}
+        context={context}
+        diagnosticContext={diagnosticContext}
+        isGenerating={isGeneratingFeedback}
         chatHistory={history.find(h => h.id === activeHistoryId)?.chatHistory || []}
-        relatedTopics={
-          topic.relatedIds 
-            ? TOPICS.filter(t => topic.relatedIds?.includes(t.id))
-            : TOPICS.filter(t => t.id !== topic.id).slice(0, 3)
-        }
+        onUpdateHistory={handleUpdateHistory}
       />
     );
   };
@@ -419,7 +488,23 @@ function AppContent() {
     }, [targetTopicId, selectedScenario, setSelectedScenario, setTargetTopicId]);
 
     if (selectedScenario) {
-      return <SimulationEngine scenario={selectedScenario} onExit={() => setSelectedScenario(null)} />;
+      const scenarioIds = Object.keys(SCENARIO_DATA);
+      const currentIndex = scenarioIds.findIndex(id => SCENARIO_DATA[id].id === selectedScenario.id);
+      const nextScenarioId = scenarioIds[currentIndex + 1];
+      
+      return (
+        <SimulationEngine
+          scenario={selectedScenario}
+          onExit={() => setSelectedScenario(null)}
+          onNext={() => {
+            if (nextScenarioId) {
+              setSelectedScenario(SCENARIO_DATA[nextScenarioId]);
+            } else {
+              setSelectedScenario(null);
+            }
+          }}
+        />
+      );
     }
 
     const getCategory = (description: string) => {
@@ -470,123 +555,147 @@ function AppContent() {
     const tabs = ['全部', '人才留存', '绩效管理', '跨部门沟通'];
 
     return (
-      <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-medium text-slate-900">实战演练</h2>
-            {/* 搜索框 */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="搜索题目..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 px-4 py-2 pl-10 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/20 transition-all"
-              />
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {tabs.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm rounded-full transition-all ${
-                  activeTab === tab
-                    ? 'bg-[#F2C94C] text-white font-medium shadow-md'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 mb-2">
-          <span className="text-xs text-slate-400">排序：</span>
-          <button
-            onClick={() => handleSort('practiceCount')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
-              sortBy === 'practiceCount'
-                ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-          >
-            <Users className="w-3 h-3" />
-            练习人数
-            {sortBy === 'practiceCount' && (
-              sortOrder === 'desc' ? '↓' : '↑'
-            )}
-          </button>
-          <button
-            onClick={() => handleSort('accuracyRate')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
-              sortBy === 'accuracyRate'
-                ? 'bg-[#F2C94C]/20 text-[#F2C94C] font-medium'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-          >
-            <Target className="w-3 h-3" />
-            正确率
-            {sortBy === 'accuracyRate' && (
-              sortOrder === 'desc' ? '↓' : '↑'
-            )}
-          </button>
-          {sortBy !== 'default' && (
-            <button
-              onClick={() => setSortBy('default')}
-              className="text-xs text-slate-400 hover:text-slate-600 underline"
-            >
-              重置
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {getSortedScenarios().map((scenario) => (
-            <div
-              key={scenario.id}
-              className="bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between group hover:border-[#F2C94C]/50 hover:shadow-md hover:scale-[1.02] transition-all shadow-none"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className={`px-2 py-1 text-xs rounded-md ${
-                    getCategory(scenario.description) === '人才留存' ? 'bg-red-50 text-red-600' :
-                    getCategory(scenario.description) === '绩效管理' ? 'bg-blue-50 text-blue-600' :
-                    getCategory(scenario.description) === '跨部门沟通' ? 'bg-green-50 text-green-600' :
-                    getCategory(scenario.description) === '团队管理' ? 'bg-purple-50 text-purple-600' :
-                    getCategory(scenario.description) === '沟通管理' ? 'bg-orange-50 text-orange-600' :
-                    getCategory(scenario.description) === '新生代管理' ? 'bg-pink-50 text-pink-600' :
-                    'bg-slate-50 text-slate-500'
-                  }`}>
-                    {getCategory(scenario.description)}
-                  </span>
+      <div className="min-h-full bg-slate-50 pb-24">
+        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+          
+          {/* 标题控制区卡片 */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            {/* 顶部：标题 + 搜索 + 排序 */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sword className="w-5 h-5 text-[#F2C94C]" />
+                <h2 className="text-2xl font-black text-slate-900">实战演练</h2>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                {/* 排序按钮 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">排序：</span>
+                  <button
+                    onClick={() => handleSort('practiceCount')}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
+                      sortBy === 'practiceCount'
+                        ? 'bg-amber-100 text-amber-600 font-medium'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Users className="w-3 h-3" />
+                    练习人数
+                    {sortBy === 'practiceCount' && (
+                      sortOrder === 'desc' ? '↓' : '↑'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleSort('accuracyRate')}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-all ${
+                      sortBy === 'accuracyRate'
+                        ? 'bg-amber-100 text-amber-600 font-medium'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Target className="w-3 h-3" />
+                    正确率
+                    {sortBy === 'accuracyRate' && (
+                      sortOrder === 'desc' ? '↓' : '↑'
+                    )}
+                  </button>
+                  {sortBy !== 'default' && (
+                    <button
+                      onClick={() => setSortBy('default')}
+                      className="text-xs text-slate-400 hover:text-slate-600 underline"
+                    >
+                      重置
+                    </button>
+                  )}
                 </div>
-                <h4 className="text-slate-900 text-base font-normal mb-3">
-                  {scenario.description.split('】')[0].replace('【', '') || scenario.description}
-                </h4>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{scenario.practiceCount?.toLocaleString() || 0}人已练</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <Target className="w-3.5 h-3.5" />
-                    <span>正确率 {scenario.accuracyRate || 0}%</span>
-                  </div>
+                
+                {/* 搜索框 */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="搜索题目..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-48 px-4 py-2 pl-10 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/20 transition-all"
+                  />
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedScenario(scenario)}
-                className="px-6 py-2 bg-[#F2C94C] text-white font-medium rounded-full text-sm hover:bg-[#E5B73B] transition-all shadow-sm cursor-pointer"
-              >
-                开始演练
-              </button>
             </div>
-          ))}
+            
+            {/* 金色分隔线 */}
+            <div className="w-12 h-0.5 bg-[#F2C94C] mb-4"></div>
+            
+            {/* 分类标签 */}
+            <div className="flex gap-2">
+              {tabs.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 text-sm rounded-full border transition-all ${
+                    activeTab === tab
+                      ? 'bg-[#F2C94C] text-white border-[#F2C94C] font-medium'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-[#F2C94C] hover:text-[#F2C94C]'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 场景卡片列表 */}
+          <div className="space-y-3">
+            {getSortedScenarios().map((scenario, index) => (
+              <div
+                key={scenario.id}
+                className="bg-white rounded-lg shadow-sm p-6 flex items-center justify-between border border-slate-100"
+              >
+                <div className="flex-1">
+                  {/* 分类标签 - 统一风格 */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs rounded">
+                      {getCategory(scenario.description)}
+                    </span>
+                  </div>
+                  
+                  {/* 标题 */}
+                  <h4 className="text-slate-900 text-base font-bold mb-3">
+                    {scenario.description.split('】')[0].replace('【', '') || scenario.description}
+                  </h4>
+                  
+                  {/* 元信息 */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{scenario.practiceCount?.toLocaleString() || 0}人已练</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Target className="w-3.5 h-3.5" />
+                      <span>正确率 {scenario.accuracyRate || 0}%</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 开始按钮 */}
+                <button
+                  onClick={() => setSelectedScenario(scenario)}
+                  className="px-6 py-2.5 bg-[#F2C94C] text-white font-medium rounded-full text-sm hover:bg-[#E5B73B] transition-colors shadow-sm"
+                >
+                  开始演练
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          {/* 空状态 */}
+          {getSortedScenarios().length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-slate-400 text-sm">暂无匹配的场景</div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -752,36 +861,47 @@ function AppContent() {
                         <ArrowRight className="w-4 h-4 mr-2 rotate-180" /> 返回搜索
                       </button>
                       {selectedTopic && (
-                        <TacticalBriefing 
-                          topic={selectedTopic}
-                          prescription={selectedTopic.id === 'custom' ? {
-                            truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
-                            script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
-                            redLines: ['正在划定红线...']
-                          } : PRESCRIPTION_DATA[selectedTopic.id] || null}
-                          experts={EXPERTS}
-                          context={context}
-                          onNavigateToTopic={handleTopicClick}
-                          onNavigateToPractice={(id) => {
-                            setTargetTopicId(id);
-                            navigate('/practice');
-                          }}
-                          onNavigateToDiagnosis={(id) => {
-                            setTargetTopicId(id);
-                            const topic = TOPICS.find(t => t.id === id);
-                            if (topic) setPendingQuery(topic.title);
-                            navigate('/diagnose-engine');
-                          }}
-                          onExpertClick={handleExpertClick}
-                          isGeneratingFeedback={isGeneratingFeedback}
-                        />
+                        selectedTopic.id === 'custom' || selectedTopic.id === 'diagnostic-result' ? (
+                          <DiagnosticResultView
+                            topic={selectedTopic}
+                            prescription={selectedTopic.id === 'custom' ? {
+                              truth: aiFeedback.split('\n\n')[0] || '正在剖析真相...',
+                              summary: aiFeedback.split('\n\n')[1] || '生成建议中...',
+                              script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
+                              redLines: ['正在划定红线...']
+                            } : null}
+                            experts={EXPERTS}
+                            context={context}
+                            diagnosticContext={diagnosticContext}
+                            isGenerating={isGeneratingFeedback}
+                            chatHistory={history.find(h => h.id === activeHistoryId)?.chatHistory || []}
+                            onUpdateHistory={handleUpdateHistory}
+                          />
+                        ) : (
+                          <StudyDetailView
+                            topic={selectedTopic}
+                            experts={EXPERTS}
+                            context={context}
+                            onNavigateToPractice={(id) => {
+                              setTargetTopicId(id);
+                              navigate('/practice');
+                            }}
+                            onNavigateToDiagnosis={(id) => {
+                              setTargetTopicId(id);
+                              const t = TOPICS.find(topic => topic.id === id);
+                              if (t) setPendingQuery(t.title);
+                              navigate('/diagnose-engine');
+                            }}
+                          />
+                        )
                       )}
                     </div>
                   )}
                 </div>
               } />
 
-              <Route path="/topic/:id" element={<TacticalBriefingWrapper />} />
+              <Route path="/topic/:id" element={<StudyDetailWrapper />} />
+              <Route path="/diagnostic-result" element={<DiagnosticResultWrapper />} />
               
               <Route path="/expert/:expertId/case/:caseId" element={<ExpertCaseDetailWrapper />} />
 
@@ -801,204 +921,216 @@ function AppContent() {
               } />
 
               <Route path="/diagnose-start" element={
-                <div className="flex-1 flex flex-col bg-[#F8FAFC] min-h-screen">
-                  {/* 顶部 - 输入区 */}
-                  <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-                    <div className="w-full max-w-3xl space-y-10">
-                      {/* 标题区 */}
-                      <div className="text-center space-y-5">
-                        <h1 className="text-4xl md:text-5xl font-black text-[#0A0F1D] tracking-tight">
-                          深度诊断您的<span className="text-[#F2C94C]">管理困境</span>
-                        </h1>
-                        <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">
-                          AI 管理参谋为您起底问题本质，提供定制化决策路径
-                        </p>
-                      </div>
+                (() => {
+                  const [inputValue, setInputValue] = useState('');
+                  const [isLoading, setIsLoading] = useState(false);
+                  const [showEmptyTip, setShowEmptyTip] = useState(false);
 
-                      {/* 搜索输入区 */}
-                      <div className="space-y-4">
-                        <div className="relative group">
-                          <textarea
-                            placeholder="描述一个让你头疼的管理场景，或说出现在的团队状态..."
-                            rows={3}
-                            className="w-full px-6 py-5 bg-white border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 text-base focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/10 resize-none transition-all shadow-sm"
-                            onChange={(e) => setPendingQuery(e.target.value)}
-                          />
-                          <div className="absolute bottom-4 right-4 text-slate-400">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
+                  // 组件挂载时重置 loading 状态，防止卡住
+                  useEffect(() => {
+                    setIsLoading(false);
+                  }, []);
+
+                  const handleStartDiagnose = () => {
+                    if (!inputValue.trim() && !pendingQuery.trim()) {
+                      setShowEmptyTip(true);
+                      setTimeout(() => setShowEmptyTip(false), 2000);
+                      return;
+                    }
+                    setIsLoading(true);
+                    setPendingQuery(inputValue || pendingQuery);
+                    // 添加超时保护，3秒后自动重置 loading 状态
+                    const timeoutId = setTimeout(() => {
+                      setIsLoading(false);
+                    }, 3000);
+                    setTimeout(() => {
+                      try {
+                        navigate('/diagnose-engine');
+                      } catch (e) {
+                        console.error('导航失败:', e);
+                        setIsLoading(false);
+                        clearTimeout(timeoutId);
+                      }
+                    }, 300);
+                  };
+
+                  const handleCardClick = (desc: string) => {
+                    setIsLoading(true);
+                    setPendingQuery(desc);
+                    // 添加超时保护，3秒后自动重置 loading 状态
+                    const timeoutId = setTimeout(() => {
+                      setIsLoading(false);
+                    }, 3000);
+                    setTimeout(() => {
+                      try {
+                        navigate('/diagnose-engine');
+                      } catch (e) {
+                        console.error('导航失败:', e);
+                        setIsLoading(false);
+                        clearTimeout(timeoutId);
+                      }
+                    }, 300);
+                  };
+
+                  return (
+                    <div className="flex-1 flex flex-col bg-[#F8FAFC]">
+                      {/* 顶部 - 输入区 */}
+                      <div className="flex-shrink-0 flex flex-col items-center justify-center px-6 pt-10 pb-8">
+                        <div className="w-full max-w-3xl space-y-6">
+                          {/* 标题区 */}
+                          <div className="text-center space-y-3">
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                              <span className="text-[#F2C94C]">AI</span> 诊断你的管理困境
+                            </h1>
+                            <p className="text-slate-500 text-base max-w-xl mx-auto">
+                              描述场景，回答几道题目，AI 生成定制化方案
+                            </p>
+                          </div>
+
+                          {/* 搜索输入区 */}
+                          <div className="space-y-3">
+                            <div className={`rounded-xl transition-all ${showEmptyTip ? 'animate-pulse ring-2 ring-red-400' : ''}`}>
+                              <IntentionCapture
+                                mode="new-search"
+                                placeholder="描述你的管理困境..."
+                                onSearch={(query) => {
+                                  setInputValue(query);
+                                  setPendingQuery(query);
+                                  navigate('/diagnose-engine');
+                                }}
+                                onChange={(value) => setInputValue(value)}
+                              />
+                            </div>
+                            <button
+                              onClick={handleStartDiagnose}
+                              disabled={isLoading}
+                              className={`w-full py-4 bg-[#F2C94C] hover:bg-[#E5B73B] text-white font-black text-lg rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                                !inputValue.trim() && !pendingQuery.trim() ? 'opacity-80' : ''
+                              }`}
+                            >
+                              {isLoading ? (
+                                <>
+                                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  准备中...
+                                </>
+                              ) : (
+                                '开始 AI 诊断'
+                              )}
+                            </button>
+                            {showEmptyTip && (
+                              <p className="text-center text-sm text-red-500 animate-pulse">
+                                请先描述你的管理困境
+                              </p>
+                            )}
                           </div>
                         </div>
-                        
-                        <button
-                          onClick={() => navigate('/diagnose-engine')}
-                          className="w-full py-4 bg-[#F2C94C] hover:bg-[#E5B73B] text-white font-black text-lg rounded-xl shadow-lg shadow-[#F2C94C]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                        >
-                          <Activity className="w-5 h-5" />
-                          点击开启深度诊断
-                        </button>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* 中部 - 高频现象自测区 */}
-                  <div className="px-6 pb-8">
-                    <div className="max-w-5xl mx-auto">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-1 h-6 bg-[#F2C94C] rounded-full"></div>
-                        <h3 className="text-lg font-bold text-slate-800">高频现象自测区</h3>
-                        <span className="text-xs text-slate-400">选择与您最贴近的症状，快速进入诊断</span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
-                          {
-                            id: 'bottleneck',
-                            title: '管理瓶颈诊断',
-                            desc: '团队推一下动一下，不推就不动，缺乏自驱力',
-                            icon: '🔍',
-                            bgColor: 'bg-amber-50'
-                          },
-                          {
-                            id: 'turnover',
-                            title: '人才流失预警',
-                            desc: '核心干劲突然沉寂，疑似有离职倾向，该如何提前切入？',
-                            icon: '⚠️',
-                            bgColor: 'bg-red-50'
-                          },
-                          {
-                            id: 'collaboration',
-                            title: '跨部门破冰',
-                            desc: '资源调不动，协作像撞墙，如何打破利益围栏？',
-                            icon: '🌉',
-                            bgColor: 'bg-blue-50'
-                          }
-                        ].map((item, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            onClick={() => {
-                              setPendingQuery(item.desc);
-                              navigate('/diagnose-engine');
-                            }}
-                            className="p-5 bg-white border border-slate-100 rounded-2xl hover:border-[#F2C94C] hover:shadow-lg hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group"
-                          >
-                            <div className="flex items-start gap-3">
-                              <span className={`w-10 h-10 ${item.bgColor} rounded-xl flex items-center justify-center text-xl`}>{item.icon}</span>
-                              <div className="flex-1">
-                                <h4 className="font-bold text-slate-800 mb-2 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
-                                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
-                              </div>
+                      {/* 诊断流程 */}
+                      <div className="flex-shrink-0 px-6 py-6">
+                        <div className="max-w-4xl mx-auto">
+                          <p className="text-center text-base font-medium text-slate-600 mb-6">诊断流程</p>
+                          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
+                            <div className="text-center">
+                              <div className="w-10 h-10 mx-auto mb-2 bg-[#F2C94C] rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
+                              <h4 className="font-bold text-slate-800 mb-1">描述场景</h4>
+                              <p className="text-xs text-slate-500">输入你的管理困境</p>
                             </div>
-                            <div className="mt-4 flex items-center gap-2 text-xs text-slate-400 group-hover:text-[#F2C94C] transition-colors">
-                              <span>立即诊断</span>
-                              <ChevronRight className="w-4 h-4" />
+                            <div className="hidden md:block text-slate-300">→</div>
+                            <div className="text-center">
+                              <div className="w-10 h-10 mx-auto mb-2 bg-[#F2C94C] rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
+                              <h4 className="font-bold text-slate-800 mb-1">回答题目</h4>
+                              <p className="text-xs text-slate-500">几道关键调研题目</p>
                             </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 底部 - 历史诊断档案 */}
-                  <div className="px-6 pb-12">
-                    <div className="max-w-5xl mx-auto">
-                      <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-1 h-6 bg-[#F2C94C] rounded-full"></div>
-                            <h3 className="text-lg font-bold text-slate-800">历史诊断档案</h3>
+                            <div className="hidden md:block text-slate-300">→</div>
+                            <div className="text-center">
+                              <div className="w-10 h-10 mx-auto mb-2 bg-[#F2C94C] rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
+                              <h4 className="font-bold text-slate-800 mb-1">AI 生成</h4>
+                              <p className="text-xs text-slate-500">定制化，可追问</p>
+                            </div>
                           </div>
-                          <button
-                            onClick={() => navigate('/history')}
-                            className="text-xs text-[#F2C94C] hover:text-[#E5B73B] transition-colors flex items-center gap-1"
-                          >
-                            查看全部
-                            <ChevronRight className="w-3 h-3" />
-                          </button>
                         </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                          {history.slice(0, 4).length > 0 ? (
-                            history.slice(0, 4).map((item, i) => (
-                              <div
+                      </div>
+
+                      {/* 中部 - 常见困境 */}
+                      <div className="flex-1 px-6 pb-8 overflow-y-auto">
+                        <div className="max-w-5xl mx-auto">
+                          <div className="flex items-center gap-3 mb-6">
+                            <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
+                            <h3 className="text-base font-bold text-slate-800">常见困境</h3>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[
+                              {
+                                id: 'bottleneck',
+                                title: '执行力瓶颈',
+                                desc: '团队推一下动一下，缺乏自驱力'
+                              },
+                              {
+                                id: 'turnover',
+                                title: '人才流失',
+                                desc: '核心骨干疑似离职，如何提前切入'
+                              },
+                              {
+                                id: 'collaboration',
+                                title: '跨部门协作',
+                                desc: '资源调不动，协作撞墙'
+                              },
+                              {
+                                id: 'communication',
+                                title: '向上管理',
+                                desc: '如何有效汇报，争取资源支持'
+                              },
+                              {
+                                id: 'motivation',
+                                title: '团队激励',
+                                desc: '如何激发团队积极性，提升士气'
+                              },
+                              {
+                                id: 'performance',
+                                title: '绩效面谈',
+                                desc: '如何与低绩效员工进行有效沟通'
+                              }
+                            ].map((item, i) => (
+                              <motion.div
                                 key={i}
-                                onClick={() => navigate('/history')}
-                                className="p-4 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-200 transition-all cursor-pointer group"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                onClick={() => !isLoading && handleCardClick(item.desc)}
+                                className={`p-5 bg-white border border-slate-200 rounded-2xl hover:border-[#F2C94C] hover:shadow-lg hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
                               >
-                                <div className="text-xs text-slate-400 mb-1">{new Date(item.timestamp).toLocaleDateString()}</div>
-                                <div className="text-sm text-slate-700 line-clamp-2 group-hover:text-[#F2C94C] transition-colors">
-                                  {item.query}
-                                </div>
-                                <div className="mt-2 flex items-center gap-2">
-                                  <span className={`w-2 h-2 rounded-full ${item.isDeepDiagnosis ? 'bg-[#F2C94C]' : 'bg-slate-400'}`}></span>
-                                  <span className="text-xs text-slate-500">{item.isDeepDiagnosis ? '深度诊断' : '快速咨询'}</span>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <>
-                              <div className="p-4 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                  </svg>
-                                </div>
-                                <div className="text-xs text-slate-500">暂无历史诊断</div>
-                              </div>
-                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-6 h-6 rounded-full bg-[#F2C94C]/10 flex items-center justify-center">
-                                    <span className="text-xs">🎯</span>
-                                  </div>
-                                  <span className="text-xs text-slate-400">示例诊断</span>
-                                </div>
-                                <div className="text-sm text-slate-600">团队执行力持续下滑...</div>
-                              </div>
-                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-6 h-6 rounded-full bg-[#F2C94C]/10 flex items-center justify-center">
-                                    <span className="text-xs">⚡</span>
-                                  </div>
-                                  <span className="text-xs text-slate-400">示例诊断</span>
-                                </div>
-                                <div className="text-sm text-slate-600">跨部门项目推进受阻...</div>
-                              </div>
-                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-6 h-6 rounded-full bg-[#F2C94C]/10 flex items-center justify-center">
-                                    <span className="text-xs">🔥</span>
-                                  </div>
-                                  <span className="text-xs text-slate-400">示例诊断</span>
-                                </div>
-                                <div className="text-sm text-slate-600">核心骨干提出离职...</div>
-                              </div>
-                            </>
-                          )}
+                                <h4 className="font-bold text-slate-800 mb-2 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
+                                <p className="text-sm text-slate-600 leading-relaxed">{item.desc}</p>
+                              </motion.div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()
               } />
 
               <Route path="/diagnose-engine" element={
-                <div className="max-w-4xl mx-auto py-10">
-                  <div className="text-center mb-10">
-                    <h2 className="text-3xl font-black text-[#0A0F1D] mb-4">深度管理研判：多维透视</h2>
-                    <p className="text-gray-500">针对复杂管理场景，我们需要更精准的团队画像以提供实战建议</p>
-                  </div>
-                  <DiagnoseEngine 
+                <div className="max-w-3xl mx-auto py-10">
+                  <DiagnoseEngine
                     mode="problem"
                     query={pendingQuery}
                     targetTopicId={targetTopicId || undefined}
                     initialContext={context}
-                    onComplete={handleDiagnosisComplete} 
+                    onComplete={() => navigate('/diagnose-result')}
                   />
                 </div>
+              } />
+
+              <Route path="/diagnose-result" element={
+                <DiagnoseResultView
+                  query={pendingQuery}
+                  answers={{}}
+                  onBack={() => navigate('/diagnose-engine')}
+                />
               } />
 
               <Route path="/history" element={
@@ -1068,11 +1200,13 @@ function AppContent() {
         )}
 
         {/* 页脚 - 自然流式布局，随内容滚动 */}
-        <footer className="py-8 text-center mt-auto">
-          <p className="text-[10px] text-slate-400">
-            及时、精准、有效解决管理痛点，助力每一位管理者提升管理能力
-          </p>
-        </footer>
+        {location.pathname !== '/diagnose-result' && (
+          <footer className="py-8 text-center mt-auto">
+            <p className="text-[10px] text-slate-400">
+              及时、精准、有效解决管理痛点，助力每一位管理者提升管理能力
+            </p>
+          </footer>
+        )}
       </main>
     </div>
   );

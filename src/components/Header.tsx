@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppView, Topic, ProfileContext } from '../types';
 import { ChevronRight, Settings, Menu, Home } from 'lucide-react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { EXPERTS, EXPERT_CASES } from '../data';
 
 interface HeaderProps {
@@ -17,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams<{ expertId?: string; caseId?: string }>();
+  const [searchParams] = useSearchParams();
   
   // 检测当前路由
   const isExpertCaseDetail = location.pathname.includes('/expert/') && location.pathname.includes('/case/');
@@ -28,9 +29,11 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
   const isDiagnoseStart = location.pathname === '/diagnose-start';
   const isDiagnose = location.pathname === '/diagnose-engine' || isDiagnoseStart;
   const isHistory = location.pathname === '/history';
+  const isDiagnoseResultPage = location.pathname === '/diagnose-result';
+  const isDiagnoseEngine = location.pathname === '/diagnose-engine';
   
   // 判断是否为首页（不显示面包屑）
-  const isHomePage = isHome || isPractice || isDiagnoseStart || isHistory;
+  const isHomePage = isHome || isPractice || isHistory;
   
   // 从路由解析专家名称和案例标题
   const pathParts = location.pathname.split('/');
@@ -41,6 +44,10 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
   const expert = expertId ? EXPERTS.find(e => e.id === expertId) : null;
   // 获取案例信息
   const expertCase = caseId ? EXPERT_CASES[caseId] : null;
+
+  // 从 URL 参数获取来源信息
+  const source = searchParams.get('source');
+  const topicName = searchParams.get('topicName');
 
   const handleRootClick = () => {
     setSelectedTopic(null);
@@ -55,6 +62,12 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
     } else {
       navigate('/');
     }
+  };
+
+  // 返回话题页（首页）
+  const handleBackToTopic = () => {
+    setView('home');
+    navigate('/');
   };
 
   return (
@@ -75,38 +88,80 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
                 <span>首页</span>
               </button>
 
-              {/* 专家案例详情页面的面包屑：首页 > 专家名 > 案例标题 */}
-              {isExpertCaseDetail && expert && (
+              {/* 专家案例详情页面的面包屑 */}
+              {isExpertCaseDetail && (
                 <>
-                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
-                  <button
-                    onClick={handleBackToExpert}
-                    className="hover:text-[#F2C94C] transition-colors truncate max-w-[120px]"
-                  >
-                    {expert.name}
-                  </button>
-                  {expertCase && (
+                  {/* 从话题进入：首页 > 话题详情 > 案例详情 */}
+                  {source === 'topic' && (
                     <>
                       <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
-                      <span className="text-[#0A0F1D] font-medium truncate max-w-[200px]">{expertCase.title}</span>
+                      <button
+                        onClick={handleBackToTopic}
+                        className="hover:text-[#F2C94C] transition-colors"
+                      >
+                        话题详情
+                      </button>
+                      <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                      <span className="text-[#0A0F1D] font-medium">案例详情</span>
+                    </>
+                  )}
+                  
+                  {/* 从专家进入：首页 > 专家主页 > 案例详情 */}
+                  {source === 'expert' && expert && (
+                    <>
+                      <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                      <button
+                        onClick={handleBackToExpert}
+                        className="hover:text-[#F2C94C] transition-colors"
+                      >
+                        专家主页
+                      </button>
+                      <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                      <span className="text-[#0A0F1D] font-medium">案例详情</span>
+                    </>
+                  )}
+                  
+                  {/* 直接访问或其他情况：首页 > 案例详情 */}
+                  {source !== 'topic' && source !== 'expert' && (
+                    <>
+                      <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                      <span className="text-[#0A0F1D] font-medium">案例详情</span>
                     </>
                   )}
                 </>
               )}
 
-              {/* 专家主页面包屑：首页 > 专家名 */}
+              {/* 专家主页面包屑：首页 > 专家主页（固定） */}
               {isExpertProfile && expert && (
                 <>
                   <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
-                  <span className="text-[#0A0F1D] font-medium truncate max-w-[280px]">{expert.name}</span>
+                  <span className="text-[#0A0F1D] font-medium">专家主页</span>
                 </>
               )}
 
-              {/* 话题详情页面的面包屑：首页 > 话题标题 */}
+              {/* 话题详情页面的面包屑：首页 > 话题详情（固定） */}
               {isTopicDetail && selectedTopic && (
                 <>
                   <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
-                  <span className="text-[#0A0F1D] font-medium truncate max-w-[280px]">{selectedTopic.title}</span>
+                  <span className="text-[#0A0F1D] font-medium">话题详情</span>
+                </>
+              )}
+
+              {/* 深度诊断结果页面的面包屑：首页 > 深度诊断结果 */}
+              {isDiagnoseResultPage && (
+                <>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                  <span className="text-[#0A0F1D] font-medium">深度诊断结果</span>
+                </>
+              )}
+
+              {/* 诊断引擎页面的面包屑：首页 > 深度诊断 > 回答调研题目 */}
+              {isDiagnoseEngine && (
+                <>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                  <span className="text-gray-400">深度诊断</span>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+                  <span className="text-[#0A0F1D] font-medium">回答调研题目</span>
                 </>
               )}
             </>
