@@ -20,6 +20,7 @@ import { ExpertCaseDetail } from './components/ExpertCaseDetail';
 import { ExpertLeaderboard } from './components/ExpertLeaderboard';
 import { ExpertProfileView } from './components/ExpertProfileView';
 import { HistoryView } from './components/HistoryView';
+import ProfilePage from './pages/ProfilePage';
 import {
   ExpertProfileViewWrapper,
   ExpertCaseDetailWrapper
@@ -141,7 +142,7 @@ function AppContent() {
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [aiFeedback, setAiFeedback] = useState<string>('');
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
-  const [showProfilePopup, setShowProfilePopup] = useState(false);
+
   const [targetTopicId, setTargetTopicId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('全部');
   const [sortBy, setSortBy] = useState<'default' | 'practiceCount' | 'accuracyRate'>('default');
@@ -330,7 +331,6 @@ function AppContent() {
     setTargetTopicId(null);
     setHistory([]);
     setAiFeedback('');
-    setShowProfilePopup(false);
     setIsBriefingMode(false);
   };
 
@@ -763,8 +763,6 @@ function AppContent() {
         onNavigate={handleSetView} 
         context={context} 
         userStats={userStats}
-        showProfilePopup={showProfilePopup} 
-        setShowProfilePopup={setShowProfilePopup}
         onLogout={handleLogout}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
@@ -1152,15 +1150,35 @@ function AppContent() {
                       }
                     } else if (v === 'home') {
                       navigate('/');
+                    } else if (v === 'diagnose-start') {
+                      navigate('/diagnose-start');
+                    } else if (v === 'practice') {
+                      navigate('/practice');
                     }
                   }}
-                  bookmarks={Object.values(EXPERT_CASES).filter(c => userStats.bookmarks?.includes(c.id))}
                   onReloadChat={(ctx) => {
                     setContext(ctx);
                     navigate('/diagnose-start');
                   }}
+                  onDeleteStudyRecord={(id) => setStudyRecords(prev => prev.filter(r => r.id !== id))}
+                  onDeletePracticeRecord={(id) => setPracticeRecords(prev => prev.filter(r => r.id !== id))}
+                  onDeleteChatRecord={(id) => {
+                    setHistory(prev => {
+                      const updated = prev.filter(h => h.id !== id);
+                      localStorage.setItem('management_history', JSON.stringify(updated));
+                      return updated;
+                    });
+                  }}
+                  onClearStudyRecords={() => setStudyRecords([])}
+                  onClearPracticeRecords={() => setPracticeRecords([])}
+                  onClearChatRecords={() => {
+                    setHistory([]);
+                    localStorage.setItem('management_history', '[]');
+                  }}
                 />
               } />
+
+              <Route path="/profile" element={<ProfilePage />} />
 
               <Route path="/expert-profile" element={
                 selectedExpert && (

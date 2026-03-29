@@ -55,6 +55,7 @@ export interface Topic {
   caseStudy?: string; // 实战案例
   videoUrl?: string;
   audioUrl?: string;
+  views?: number;
   relatedQuestionIds?: string[];
 }
 
@@ -71,6 +72,9 @@ export interface ExpertCase {
   expertInsight?: string;
   videoUrl?: string;
   audioUrl?: string;
+  coverImage?: string;
+  views?: number;
+  duration?: string;
   expertProfile: {
     id: string;
     name: string;

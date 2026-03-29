@@ -1,14 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { HistoryItem, AppView, ExpertCase, ProfileContext, SimulationRecord, StudyRecord } from '../types';
-import { BookOpen, Activity, Target, History as HistoryIcon, ChevronRight, RefreshCw, Award, Heart, Bookmark, Clock, TrendingUp, MessageSquare, CheckCircle2, XCircle, Zap, Lightbulb, FileText, PlayCircle, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { HistoryItem, AppView, ExpertCase, StudyRecord, SimulationRecord } from '../types';
+import {
+  BookOpen, Activity, Target, History as HistoryIcon, ChevronRight, Award, Clock,
+  MessageSquare, CheckCircle2, XCircle, FileText, BarChart3, Search,
+  MoreHorizontal, Trash2, TrendingUp, TrendingDown, Minus, AlertTriangle
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   history: HistoryItem[];
-  bookmarks: ExpertCase[];
   studyRecords: StudyRecord[];
   practiceRecords: SimulationRecord[];
   onReloadChat: (context: any) => void;
   onNavigate: (view: AppView, item: any) => void;
+  onDeleteStudyRecord?: (id: string) => void;
+  onDeletePracticeRecord?: (id: string) => void;
+  onDeleteChatRecord?: (id: string) => void;
+  onClearStudyRecords?: () => void;
+  onClearPracticeRecords?: () => void;
+  onClearChatRecords?: () => void;
 }
 
 // 示例数据 - 学一学
@@ -19,9 +29,9 @@ const DEMO_STUDY_RECORDS: StudyRecord[] = [
     topicTitle: '核心骨干突然沉默，疑似有离职倾向',
     expertName: '张建国',
     expertTitle: '前华为组织发展专家',
-    action: 'view', // view | bookmark | share
-    timestamp: Date.now() - 86400000 * 2, // 2天前
-    duration: 180, // 阅读时长（秒）
+    action: 'view',
+    timestamp: Date.now() - 86400000 * 2,
+    duration: 180,
   },
   {
     id: 'study-002',
@@ -30,7 +40,7 @@ const DEMO_STUDY_RECORDS: StudyRecord[] = [
     expertName: '李慕华',
     expertTitle: '360高级副总裁/资深教练',
     action: 'bookmark',
-    timestamp: Date.now() - 86400000 * 5, // 5天前
+    timestamp: Date.now() - 86400000 * 5,
     duration: 240,
   },
   {
@@ -40,7 +50,7 @@ const DEMO_STUDY_RECORDS: StudyRecord[] = [
     expertName: '陈志远',
     expertTitle: '字节跳动前HRBP负责人',
     action: 'view',
-    timestamp: Date.now() - 86400000 * 7, // 7天前
+    timestamp: Date.now() - 86400000 * 7,
     duration: 120,
   },
 ];
@@ -55,8 +65,8 @@ const DEMO_PRACTICE_RECORDS: SimulationRecord[] = [
     selectedOption: 'option-b',
     isCorrect: true,
     impact: { morale: 15, efficiency: 20, retention: -5 },
-    timestamp: Date.now() - 86400000 * 1, // 1天前
-    timeSpent: 45, // 答题用时（秒）
+    timestamp: Date.now() - 86400000 * 1,
+    timeSpent: 45,
   },
   {
     id: 'practice-002',
@@ -66,7 +76,7 @@ const DEMO_PRACTICE_RECORDS: SimulationRecord[] = [
     selectedOption: 'option-a',
     isCorrect: false,
     impact: { morale: -15, efficiency: -10, retention: 20 },
-    timestamp: Date.now() - 86400000 * 3, // 3天前
+    timestamp: Date.now() - 86400000 * 3,
     timeSpent: 62,
   },
   {
@@ -77,7 +87,7 @@ const DEMO_PRACTICE_RECORDS: SimulationRecord[] = [
     selectedOption: 'option-c',
     isCorrect: true,
     impact: { morale: 25, efficiency: 10, retention: -20 },
-    timestamp: Date.now() - 86400000 * 6, // 6天前
+    timestamp: Date.now() - 86400000 * 6,
     timeSpent: 88,
   },
   {
@@ -88,7 +98,7 @@ const DEMO_PRACTICE_RECORDS: SimulationRecord[] = [
     selectedOption: 'option-b',
     isCorrect: true,
     impact: { morale: 10, efficiency: 25, retention: 0 },
-    timestamp: Date.now() - 86400000 * 10, // 10天前
+    timestamp: Date.now() - 86400000 * 10,
     timeSpent: 55,
   },
 ];
@@ -139,103 +149,41 @@ const DEMO_CHAT_RECORDS: HistoryItem[] = [
   },
 ];
 
-// 示例数据 - 收藏
-const DEMO_BOOKMARKS: ExpertCase[] = [
-  {
-    id: 'case-001',
-    title: '华为铁三角组织管理模式',
-    summary: '解析华为如何构建客户、产品、交付三位一体的铁三角组织',
-    content: '...',
-    tags: ['组织设计', '华为', '协同'],
-    expertId: 'expert-001',
-    expertName: '张建国',
-    expertProfile: {
-      id: 'expert-001',
-      name: '张建国',
-      avatar: 'https://picsum.photos/seed/zhang/200/200',
-      title: '前华为组织发展专家',
-      resume: ['华为12年OD经验', '服务过500+管理者'],
-    },
-  },
-  {
-    id: 'case-002',
-    title: '字节跳动OKR实践指南',
-    summary: '字节跳动如何通过OKR实现组织目标与个人成长的对齐',
-    content: '...',
-    tags: ['绩效管理', '字节', 'OKR'],
-    expertId: 'expert-003',
-    expertName: '陈志远',
-    expertProfile: {
-      id: 'expert-003',
-      name: '陈志远',
-      avatar: 'https://picsum.photos/seed/chen/200/200',
-      title: '字节跳动前HRBP负责人',
-      resume: ['字节跳动HRBP负责人', 'OKR落地专家'],
-    },
-  },
-];
-
-// 示例数据 - 我的贡献
-const DEMO_CONTRIBUTIONS = [
-  { 
-    id: 'contrib-001',
-    topic: '核心骨干离职预警', 
-    content: '建议增加"职业发展二次锚定"面谈环节，在离职意向产生前进行深度沟通。',
-    points: 200, 
-    date: '2026-03-10',
-    type: 'suggestion',
-    likes: 15,
-    status: 'approved'
-  },
-  { 
-    id: 'contrib-002',
-    topic: '绩效评价标准', 
-    content: '对于研发岗位，建议引入"技术影响力"作为加分项，平衡产出与长期价值。',
-    points: 250, 
-    date: '2026-03-08',
-    type: 'case',
-    likes: 23,
-    status: 'approved'
-  },
-  { 
-    id: 'contrib-003',
-    topic: '新生代员工管理', 
-    content: '95后员工更注重成长感和参与感，建议在周会中增加"本周成长分享"环节。',
-    points: 0, 
-    date: '2026-03-15',
-    type: 'suggestion',
-    likes: 8,
-    status: 'pending'
-  },
-];
-
-export const HistoryView: React.FC<Props> = ({ 
-  history, 
-  bookmarks: propBookmarks, 
+export const HistoryView: React.FC<Props> = ({
+  history,
   studyRecords: propStudyRecords,
   practiceRecords: propPracticeRecords,
-  onReloadChat, 
-  onNavigate 
+  onReloadChat,
+  onNavigate,
+  onDeleteStudyRecord,
+  onDeletePracticeRecord,
+  onDeleteChatRecord,
+  onClearStudyRecords,
+  onClearPracticeRecords,
+  onClearChatRecords,
 }) => {
-  const [activeTab, setActiveTab] = useState<'ask' | 'practice' | 'chat' | 'mine' | 'favorites'>('ask');
+  const [activeTab, setActiveTab] = useState<'ask' | 'practice' | 'chat'>('ask');
   const [mounted, setMounted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFilter, setTimeFilter] = useState<'all' | '7d' | '30d'>('all');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 合并示例数据和真实数据（如果有）
+  // 合并示例数据和真实数据（测试环境）
   const studyRecords = mounted && propStudyRecords?.length > 0 ? propStudyRecords : DEMO_STUDY_RECORDS;
   const practiceRecords = mounted && propPracticeRecords?.length > 0 ? propPracticeRecords : DEMO_PRACTICE_RECORDS;
   const chatRecords = mounted && history?.length > 0 ? history.filter(h => h.isDeepDiagnosis) : DEMO_CHAT_RECORDS;
-  const displayBookmarks = mounted && propBookmarks?.length > 0 ? propBookmarks : DEMO_BOOKMARKS;
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / 86400000);
-    
+
     if (days === 0) return '今天';
     if (days === 1) return '昨天';
     if (days < 7) return `${days}天前`;
@@ -248,228 +196,425 @@ export const HistoryView: React.FC<Props> = ({
     return `${Math.floor(seconds / 60)}分${seconds % 60}秒`;
   };
 
+  const isWithinTimeFilter = (timestamp: number) => {
+    if (timeFilter === 'all') return true;
+    const now = Date.now();
+    const diff = now - timestamp;
+    if (timeFilter === '7d') return diff <= 7 * 86400000;
+    if (timeFilter === '30d') return diff <= 30 * 86400000;
+    return true;
+  };
+
+  const filteredStudyRecords = useMemo(() => {
+    return studyRecords.filter(r => {
+      if (!isWithinTimeFilter(r.timestamp)) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return r.topicTitle.toLowerCase().includes(q) || r.expertName.toLowerCase().includes(q);
+    });
+  }, [studyRecords, searchQuery, timeFilter]);
+
+  const filteredPracticeRecords = useMemo(() => {
+    return practiceRecords.filter(r => {
+      if (!isWithinTimeFilter(r.timestamp)) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return r.scenarioTitle.toLowerCase().includes(q) || r.category.toLowerCase().includes(q);
+    });
+  }, [practiceRecords, searchQuery, timeFilter]);
+
+  const filteredChatRecords = useMemo(() => {
+    return chatRecords.filter(r => {
+      if (!isWithinTimeFilter(r.timestamp)) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return r.query.toLowerCase().includes(q) || r.aiResponse.toLowerCase().includes(q);
+    });
+  }, [chatRecords, searchQuery, timeFilter]);
+
+
+
+  const handleDelete = (id: string) => {
+    if (activeTab === 'ask') onDeleteStudyRecord?.(id);
+    if (activeTab === 'practice') onDeletePracticeRecord?.(id);
+    if (activeTab === 'chat') onDeleteChatRecord?.(id);
+    setOpenMenuId(null);
+  };
+
+  const handleClear = () => {
+    if (activeTab === 'ask') onClearStudyRecords?.();
+    if (activeTab === 'practice') onClearPracticeRecords?.();
+    if (activeTab === 'chat') onClearChatRecords?.();
+    setShowClearConfirm(false);
+  };
+
+  const canClear = activeTab === 'ask' || activeTab === 'practice' || activeTab === 'chat';
+  const currentListLength = activeTab === 'ask' ? filteredStudyRecords.length
+    : activeTab === 'practice' ? filteredPracticeRecords.length
+    : filteredChatRecords.length;
+
+  const tabs = [
+    { id: 'ask', label: '学一学', icon: BookOpen, count: studyRecords.length },
+    { id: 'practice', label: '练一练', icon: Target, count: practiceRecords.length },
+    { id: 'chat', label: '聊一聊', icon: Activity, count: chatRecords.length },
+  ] as const;
+
+  const renderImpact = (impact?: { morale: number; efficiency: number; retention: number }) => {
+    if (!impact) return null;
+    const items = [
+      { label: '士气', value: impact.morale },
+      { label: '效率', value: impact.efficiency },
+      { label: '保留', value: impact.retention },
+    ];
+    return (
+      <div className="flex items-center gap-3 mt-2">
+        {items.map(item => (
+          <div key={item.label} className="flex items-center gap-1 text-[11px]">
+            {item.value > 0 ? <TrendingUp className="w-3 h-3 text-green-500" />
+              : item.value < 0 ? <TrendingDown className="w-3 h-3 text-red-500" />
+              : <Minus className="w-3 h-3 text-slate-300" />}
+            <span className={item.value > 0 ? 'text-green-600' : item.value < 0 ? 'text-red-600' : 'text-slate-400'}>
+              {item.label}{item.value > 0 ? `+${item.value}` : item.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-[fadeIn_0.5s_ease-out]">
-      {/* 头部统计 */}
-      <div className="flex items-center mb-8">
-        <h2 className="text-2xl font-black text-[#0A0F1D] flex items-center">
-          <HistoryIcon className="w-6 h-6 mr-3 text-[#F2C94C]" /> 指挥官档案库
+    <div className="max-w-3xl mx-auto space-y-6 animate-[fadeIn_0.5s_ease-out]">
+      {/* 头部标题 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-black text-slate-900 flex items-center">
+          <HistoryIcon className="w-6 h-6 mr-3 text-[#F2C94C]" /> 历史档案
         </h2>
+        {canClear && currentListLength > 0 && (
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="text-xs text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            清空
+          </button>
+        )}
       </div>
 
       {/* 标签导航 */}
-      <div className="flex gap-8 border-b border-gray-100 overflow-x-auto no-scrollbar relative">
-        {[
-          { id: 'ask', label: '学一学', icon: BookOpen, count: studyRecords.length },
-          { id: 'practice', label: '练一练', icon: Target, count: practiceRecords.length },
-          { id: 'chat', label: '聊一聊', icon: Activity, count: chatRecords.length },
-          { id: 'favorites', label: '我的收藏', icon: Heart, count: displayBookmarks.length },
-          { id: 'mine', label: '我的贡献', icon: Award, count: DEMO_CONTRIBUTIONS.length }
-        ].map(tab => (
+      <div className="flex gap-6 border-b border-slate-100 overflow-x-auto no-scrollbar relative">
+        {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-4 text-sm font-bold transition-all border-b-2 -mb-[2px] flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'border-[#F2C94C] text-[#0A0F1D]' : 'border-transparent text-gray-400'}`}
+            onClick={() => {
+              setActiveTab(tab.id);
+              setSearchQuery('');
+              setTimeFilter('all');
+            }}
+            className={`pb-3 text-sm font-bold transition-all border-b-2 -mb-[1px] flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'border-[#F2C94C] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
           >
-            <tab.icon className="w-4 h-4" /> 
+            <tab.icon className="w-4 h-4" />
             {tab.label}
-            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-[#F2C94C]/20 text-[#F2C94C]' : 'bg-gray-100 text-gray-400'}`}>
+            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-[#F2C94C]/20 text-[#F2C94C]' : 'bg-slate-100 text-slate-400'}`}>
               {tab.count}
             </span>
           </button>
         ))}
       </div>
 
-      {/* 隐藏可能的滚动箭头按钮 */}
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-
-      <div className="py-6">
-        {/* 学一学 - 学习记录 */}
-        {activeTab === 'ask' && (
-          <div className="space-y-4">
-            {studyRecords.map((record) => (
-              <div 
-                key={record.id} 
-                onClick={() => onNavigate('home', { topicId: record.topicId })}
-                className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-[#F2C94C]/50 hover:shadow-md cursor-pointer transition-all group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-bold text-[#0A0F1D] mb-2 group-hover:text-[#F2C94C] transition-colors">
-                      {record.topicTitle}
-                    </h4>
-                    <div className="flex items-center gap-4 text-[11px] text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatTime(record.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#F2C94C]" />
-                </div>
-              </div>
-            ))}
-            {studyRecords.length === 0 && (
-              <div className="text-center py-20 text-gray-400 italic">暂无学习记录，去"学一学"看看吧</div>
-            )}
+      {/* 搜索与时间筛选 */}
+      <div className="flex flex-col sm:flex-row gap-3 sticky top-0 z-10 bg-[#F8FAFC] py-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索话题、专家、场景..."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#F2C94C] focus:ring-2 focus:ring-[#F2C94C]/20 transition-all"
+            />
           </div>
-        )}
-
-        {/* 练一练 - 演练记录 */}
-        {activeTab === 'practice' && (
-          <div className="space-y-4">
-            {practiceRecords.map((record) => (
-              <div 
-                key={record.id} 
-                className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-[#F2C94C]/50 hover:shadow-md transition-all group"
+          <div className="flex gap-2">
+            {(['all', '7d', '30d'] as const).map(tf => (
+              <button
+                key={tf}
+                onClick={() => setTimeFilter(tf)}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${timeFilter === tf ? 'bg-[#F2C94C] text-white border-[#F2C94C]' : 'bg-white text-slate-600 border-slate-200 hover:border-[#F2C94C] hover:text-[#F2C94C]'}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-bold text-[#0A0F1D] mb-3 group-hover:text-[#F2C94C] transition-colors">
-                      {record.scenarioTitle.split('】')[1] || record.scenarioTitle}
-                    </h4>
-                    <div className="flex items-center gap-4 text-[11px] text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatTime(record.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onNavigate('practice', { scenarioId: record.scenarioId })}
-                    className="px-4 py-2 bg-[#F2C94C] text-white text-xs font-bold rounded-full hover:bg-[#E5B73B] transition-colors"
+                {tf === 'all' ? '全部' : tf === '7d' ? '最近7天' : '最近30天'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+      <div className="py-2">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-3"
+          >
+            {/* 学一学 */}
+            {activeTab === 'ask' && (
+              <>
+                {filteredStudyRecords.map((record) => (
+                  <div
+                    key={record.id}
+                    onClick={() => onNavigate('home', { topicId: record.topicId })}
+                    className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm hover:shadow-md hover:border-[#F2C94C]/40 cursor-pointer transition-all group relative"
                   >
-                    再次演练
-                  </button>
-                </div>
-              </div>
-            ))}
-            {practiceRecords.length === 0 && (
-              <div className="text-center py-20 text-gray-400 italic">暂无演练记录，去"练一练"开始挑战吧</div>
-            )}
-          </div>
-        )}
-
-        {/* 聊一聊 - 深度诊断记录 */}
-        {activeTab === 'chat' && (
-          <div className="space-y-4">
-            {chatRecords.map((item) => (
-              <div 
-                key={item.id} 
-                className="bg-white p-6 rounded-2xl border border-gray-100 hover:border-[#F2C94C]/50 hover:shadow-md transition-all"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#F2C94C]/10 rounded-xl flex items-center justify-center">
-                      <MessageSquare className="w-5 h-5 text-[#F2C94C]" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-[#0A0F1D]">{item.query}</h4>
-                        <span className="px-2 py-0.5 bg-[#F2C94C]/20 text-[#F2C94C] text-[10px] font-bold rounded">
-                          深度诊断
-                        </span>
+                    <div className="flex items-start justify-between pr-8">
+                      <div className="flex-1">
+                        <h4 className="font-bold text-slate-900 mb-2 group-hover:text-[#F2C94C] transition-colors">
+                          {record.topicTitle}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatTime(record.timestamp)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <FileText className="w-3 h-3" />
+                            阅读 {formatDuration(record.duration)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Award className="w-3 h-3" />
+                            {record.expertName} · {record.expertTitle}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-gray-400">{formatTime(item.timestamp)}</p>
+                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#F2C94C] absolute right-4 top-1/2 -translate-y-1/2" />
+                    </div>
+                    {/* 更多菜单 */}
+                    <div className="absolute top-3 right-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === record.id ? null : record.id); }}
+                        className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-slate-50 rounded-md transition-colors"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      {openMenuId === record.id && (
+                        <div className="absolute right-0 top-full mt-1 w-24 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-20">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(record.id); }}
+                            className="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3 h-3" /> 删除
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => onReloadChat(item.context)}
-                    className="px-4 py-2 bg-[#F2C94C] text-white text-xs font-bold rounded-full hover:shadow-lg hover:bg-[#E5B73B] transition-all flex items-center gap-2"
-                  >
-                    <RefreshCw className="w-3 h-3" /> 继续对话
-                  </button>
-                </div>
-
-                {/* 对话轮数 */}
-                {item.chatHistory && item.chatHistory.length > 2 && (
-                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                    <BarChart3 className="w-3 h-3" />
-                    <span>共 {Math.floor(item.chatHistory.length / 2)} 轮对话</span>
+                ))}
+                {filteredStudyRecords.length === 0 && (
+                  <div className="text-center py-16 text-slate-400">
+                    <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-200" />
+                    <p className="text-sm">
+                      暂无学习记录，去
+                      <span className="text-[#F2C94C] cursor-pointer hover:underline" onClick={() => onNavigate('home', {})}>学一学</span>
+                      看看吧
+                    </p>
                   </div>
                 )}
-              </div>
-            ))}
-            {chatRecords.length === 0 && (
-              <div className="text-center py-20 text-gray-400 italic">暂无诊断记录，去"聊一聊"开始深度咨询吧</div>
+              </>
             )}
-          </div>
-        )}
 
-        {/* 我的收藏 */}
-        {activeTab === 'favorites' && (
-          <div className="space-y-4">
-            {displayBookmarks.map((item) => (
-              <div 
-                key={item.id} 
-                onClick={() => onNavigate('case-detail', item)}
-                className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-[#F2C94C]/50 hover:shadow-md cursor-pointer transition-all flex items-center gap-4 group"
-              >
-                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-[#F2C94C]">
-                  <Bookmark className="w-6 h-6 fill-current" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-[#0A0F1D] mb-1 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
-                  <p className="text-sm text-gray-500 line-clamp-1">{item.summary}</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#F2C94C]" />
-              </div>
-            ))}
-            {displayBookmarks.length === 0 && (
-              <div className="text-center py-20 text-gray-400 italic">
-                <Heart className="w-12 h-12 mx-auto mb-3 text-gray-200" />
-                暂无收藏案例，浏览时点击收藏按钮即可添加
-              </div>
+            {/* 练一练 */}
+            {activeTab === 'practice' && (
+              <>
+                {filteredPracticeRecords.map((record) => (
+                  <div
+                    key={record.id}
+                    onClick={() => onNavigate('practice', { scenarioId: record.scenarioId })}
+                    className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm hover:shadow-md hover:border-[#F2C94C]/40 cursor-pointer transition-all group relative"
+                  >
+                    <div className="flex items-start justify-between pr-8">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-bold text-slate-900 group-hover:text-[#F2C94C] transition-colors">
+                            {record.scenarioTitle.split('】')[1] || record.scenarioTitle}
+                          </h4>
+                          {record.isCorrect ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-bold rounded">
+                              <CheckCircle2 className="w-3 h-3" /> 决策正确
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded">
+                              <XCircle className="w-3 h-3" /> 红区警告
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatTime(record.timestamp)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Target className="w-3 h-3" />
+                            答题用时 {formatDuration(record.timeSpent)}
+                          </span>
+                        </div>
+                        {renderImpact(record.impact)}
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#F2C94C] absolute right-4 top-1/2 -translate-y-1/2" />
+                    </div>
+                    {/* 更多菜单 */}
+                    <div className="absolute top-3 right-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === record.id ? null : record.id); }}
+                        className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-slate-50 rounded-md transition-colors"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      {openMenuId === record.id && (
+                        <div className="absolute right-0 top-full mt-1 w-24 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-20">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(record.id); }}
+                            className="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3 h-3" /> 删除
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {filteredPracticeRecords.length === 0 && (
+                  <div className="text-center py-16 text-slate-400">
+                    <Target className="w-12 h-12 mx-auto mb-3 text-slate-200" />
+                    <p className="text-sm">
+                      暂无演练记录，去
+                      <span className="text-[#F2C94C] cursor-pointer hover:underline" onClick={() => onNavigate('practice', {})}>练一练</span>
+                      开始挑战吧
+                    </p>
+                  </div>
+                )}
+              </>
             )}
-          </div>
-        )}
 
-        {/* 我的贡献 */}
-        {activeTab === 'mine' && (
-          <div className="space-y-4">
-            {/* 贡献统计卡片 */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-[#F2C94C]/5 border border-[#F2C94C]/20 rounded-2xl p-5 flex flex-col items-center text-center">
-                <Award className="w-8 h-8 text-[#F2C94C] mb-2" />
-                <div className="text-2xl font-black text-[#0A0F1D]">450</div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase">贡献积分</div>
-              </div>
-              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex flex-col items-center text-center">
-                <Lightbulb className="w-8 h-8 text-blue-500 mb-2" />
-                <div className="text-2xl font-black text-[#0A0F1D]">3</div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase">建议提交</div>
-              </div>
-              <div className="bg-green-50 border border-green-100 rounded-2xl p-5 flex flex-col items-center text-center">
-                <Heart className="w-8 h-8 text-green-500 mb-2" />
-                <div className="text-2xl font-black text-[#0A0F1D]">46</div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase">获得赞同</div>
-              </div>
-            </div>
-            
-            {DEMO_CONTRIBUTIONS.map((item) => (
-              <div key={item.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-sm text-slate-700 leading-relaxed">{item.content}</p>
-              </div>
-            ))}
-          </div>
-        )}
+            {/* 聊一聊 */}
+            {activeTab === 'chat' && (
+              <>
+                {filteredChatRecords.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => onReloadChat(item.context)}
+                    className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm hover:shadow-md hover:border-[#F2C94C]/40 cursor-pointer transition-all group relative"
+                  >
+                    <div className="flex items-start justify-between pr-8">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#F2C94C]/10 rounded-xl flex items-center justify-center">
+                          <MessageSquare className="w-5 h-5 text-[#F2C94C]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-900 truncate">{item.query}</h4>
+                          <p className="text-[11px] text-slate-400 mt-1">{formatTime(item.timestamp)}</p>
+                          <p className="text-[11px] text-slate-500 mt-2 line-clamp-2 max-w-md">
+                            {item.aiResponse.slice(0, 40)}{item.aiResponse.length > 40 ? '...' : ''}
+                          </p>
+                          {item.chatHistory && item.chatHistory.length > 2 && (
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-2">
+                              <BarChart3 className="w-3 h-3" />
+                              <span>共 {Math.floor(item.chatHistory.length / 2)} 轮对话</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#F2C94C] absolute right-4 top-1/2 -translate-y-1/2" />
+                    </div>
+                    {/* 更多菜单 */}
+                    <div className="absolute top-3 right-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
+                        className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-slate-50 rounded-md transition-colors"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      {openMenuId === item.id && (
+                        <div className="absolute right-0 top-full mt-1 w-24 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-20">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                            className="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3 h-3" /> 删除
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {filteredChatRecords.length === 0 && (
+                  <div className="text-center py-16 text-slate-400">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-200" />
+                    <p className="text-sm">
+                      暂无诊断记录，去
+                      <span className="text-[#F2C94C] cursor-pointer hover:underline" onClick={() => onNavigate('diagnose-start', {})}>聊一聊</span>
+                      开始深度咨询吧
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* 数据联动说明 - 自然流式布局，随内容滚动 */}
-      <div className="mt-8 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
-        <div className="flex items-center gap-2 text-[11px] text-slate-500">
-          <Zap className="w-4 h-4 text-[#F2C94C]" />
-          <span>数据自动同步：您在"学一学"浏览的案例、"练一练"完成的演练将自动归档至此</span>
-        </div>
-      </div>
+      {/* 点击外部关闭菜单 */}
+      {openMenuId && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setOpenMenuId(null)}
+        />
+      )}
+
+      {/* 清空确认弹窗 */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowClearConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">确认清空？</h3>
+              </div>
+              <p className="text-sm text-slate-500 mb-6">
+                清空后，当前分类下的所有记录将无法恢复，是否继续？
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleClear}
+                  className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  确认清空
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

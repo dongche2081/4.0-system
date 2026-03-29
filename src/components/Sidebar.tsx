@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppView, ProfileContext, UserStats } from '../types';
-import { BookOpen, Target, Activity, History, LogOut, X, Users, Sparkles } from 'lucide-react';
+import { BookOpen, Target, Activity, History, LogOut, X, Users, Sparkles, ChevronRight } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -9,8 +9,6 @@ interface SidebarProps {
   onNavigate: (view: AppView) => void;
   context: ProfileContext;
   userStats: UserStats;
-  showProfilePopup: boolean;
-  setShowProfilePopup: (show: boolean) => void;
   onLogout: () => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
@@ -20,14 +18,14 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  activeView, onNavigate, context, userStats, showProfilePopup, setShowProfilePopup, onLogout, isOpen, setIsOpen, isCollapsed, setIsCollapsed, setIsBriefingMode
+  activeView, onNavigate, context, userStats, onLogout, isOpen, setIsOpen, isCollapsed, setIsCollapsed, setIsBriefingMode
 }) => {
   const navigate = useNavigate();
   const menuItems = [
     { id: 'home', icon: BookOpen, label: '学一学', subLabel: '学习标杆实践', path: '/' },
     { id: 'practice', icon: Target, label: '练一练', subLabel: '情景模拟练习', path: '/practice' },
     { id: 'diagnose-start', icon: Activity, label: '聊一聊', subLabel: '深度智能诊断', path: '/diagnose-start' },
-    { id: 'history', icon: History, label: '历史记录', subLabel: '指挥官档案库', path: '/history' },
+    { id: 'history', icon: History, label: '历史档案', subLabel: '指挥官档案库', path: '/history' },
   ];
 
   return (
@@ -78,18 +76,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="p-2 border-t border-slate-100">
-        <div className={`flex items-center p-2 rounded-xl bg-slate-50 border border-slate-100 ${isCollapsed ? 'justify-center' : ''}`}>
+        <button
+          onClick={() => {
+            navigate('/profile');
+            setIsBriefingMode(false);
+            onNavigate('profile');
+            setIsOpen(false);
+          }}
+          className={`w-full flex items-center p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all ${isCollapsed ? 'justify-center' : ''}`}
+        >
           <div className="w-8 h-8 rounded-lg bg-[#F2C94C]/10 flex-shrink-0 flex items-center justify-center border border-[#F2C94C]/20">
             <Users className="w-5 h-5 text-[#F2C94C]" />
           </div>
           {!isCollapsed && (
-            <div className="ml-3 overflow-hidden">
-              <div className="text-xs font-bold whitespace-nowrap text-slate-900">{userStats.points} 积分</div>
-              <div className="text-[10px] text-slate-400 whitespace-nowrap">战地观察员</div>
-            </div>
+            <>
+              <div className="ml-3 overflow-hidden flex-1 text-left">
+                <div className="text-xs font-bold whitespace-nowrap text-slate-900">{userStats.points} 积分</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </>
           )}
-          {!isCollapsed && <button onClick={onLogout} className="ml-auto p-2 text-slate-400 hover:text-red-500"><LogOut className="w-4 h-4" /></button>}
-        </div>
+        </button>
       </div>
     </aside>
   );

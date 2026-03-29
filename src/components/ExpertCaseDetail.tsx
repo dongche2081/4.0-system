@@ -17,12 +17,15 @@ import {
   Send,
   Hash,
   MessageSquare,
-  MoreHorizontal,
   Share2,
   Clock,
-  Eye
+  Eye,
+  Loader2,
+  Minimize2
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ExpertCaseDetailProps {
   expertCase: ExpertCase;
@@ -43,27 +46,24 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
 }) => {
   const [searchParams] = useSearchParams();
   
-  // 获取专家信息
   const expert = EXPERTS.find(e => e.id === expertCase.expertId);
   
-  // 各图标的状态管理
   const [isLiked, setIsLiked] = useState(initialIsLiked);
   const [isBookmarked, setIsBookmarked] = useState(initialIsBookmarked);
   
-  // 分享下拉菜单状态
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [showWechatModal, setShowWechatModal] = useState(false);
   const [showTeamShareModal, setShowTeamShareModal] = useState(false);
   
-  // 收藏夹下拉状态
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState('未分类');
   
-  // Toast 提示状态
   const [toast, setToast] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   
-  // 评论区状态
+  // 评论相关状态
   const [commentText, setCommentText] = useState('');
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [commentLikes, setCommentLikes] = useState<Set<string>>(new Set());
   const [comments, setComments] = useState<Array<{
     id: string;
     author: string;
@@ -71,54 +71,76 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     date: string;
     content: string;
     isOfficial?: boolean;
+    likes?: number;
+    replies?: Array<{
+      id: string;
+      author: string;
+      avatar: string;
+      date: string;
+      content: string;
+    }>;
   }>>([
     {
       id: '1',
       author: '魏红亮',
       avatar: '魏',
       date: '2023-05-24',
-      content: '宁老师的这节课，我对着电脑把四象限的图画下来，然后看着文字看了两三遍，最后用一个大拇哥来表达敬意！\n\n胡光书老师的《精益管理实战课》中就提到八大浪费，其中有一个是"员工积极性的浪费"，而员工积极性的浪费原因很多，除了我们经常提及的：领导独断、管理上没有鼓励机制外，还有一个非常重要的因素就是员工觉得"公平感"缺失。\n\n鞭打快牛在很多企业尤其是销售部门中是非常常见的，做得好接下来任务就压的重，而且有时候随着任务的增加预期的收入却没有多少增加，在遇到领导只会压任务不会分解任务，员工的公平感就会更加受挫，第一反应往往是：凭啥！',
-      isOfficial: true
+      content: '宁老师的这节课，我对着电脑把四象限的图画下来，然后看着文字看了两三遍，最后用一个大拇哥来表达敬意！\n\n胡光书老师的《精益管理实战课》中就提到八大浪费，其中有一个是"员工积极性的浪费"...',
+      isOfficial: true,
+      likes: 12,
+      replies: []
     }
   ]);
   const [commentFilter, setCommentFilter] = useState<'all' | 'featured'>('all');
   
-  // Video State
+  // 视频状态
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [videoSpeed, setVideoSpeed] = useState(1);
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Audio State
+  // 音频状态
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [isAudioLoading, setIsAudioLoading] = useState(true);
+
+  // 话题标签
+  const [showTopicDropdown, setShowTopicDropdown] = useState(false);
+  const topics = ['执行力', '团队管理', '绩效面谈', '跨部门协作', '人才保留'];
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   
   const videoSectionRef = useRef<HTMLDivElement>(null);
   const contentSectionRef = useRef<HTMLDivElement>(null);
   const shareDropdownRef = useRef<HTMLDivElement>(null);
   const folderDropdownRef = useRef<HTMLDivElement>(null);
+  const topicDropdownRef = useRef<HTMLDivElement>(null);
 
   const autoFocus = propAutoFocus || searchParams.get('type') as any;
 
-  // 显示 Toast
   const showToast = (message: string, type: 'success' | 'info' = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
   
-  // ==================== 分享功能 ====================
+  // 分享功能
   const handleShareClick = () => {
     setShowShareDropdown(!showShareDropdown);
     setShowFolderDropdown(false);
   };
   
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    showToast('链接已复制', 'success');
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast('链接已复制', 'success');
+    } catch {
+      showToast('复制失败', 'error' as any);
+    }
     setShowShareDropdown(false);
   };
   
@@ -132,7 +154,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     setShowTeamShareModal(true);
   };
   
-  // ==================== 点赞功能 ====================
+  // 点赞功能
   const handleLikeToggle = () => {
     setIsLiked(!isLiked);
     showToast(isLiked ? '已取消点赞' : '已点赞！', isLiked ? 'info' : 'success');
@@ -141,14 +163,49 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     }
   };
   
-  // ==================== 收藏功能 ====================
+  // 评论点赞
+  const handleCommentLike = (commentId: string) => {
+    setCommentLikes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commentId)) {
+        newSet.delete(commentId);
+        showToast('已取消点赞', 'info');
+      } else {
+        newSet.add(commentId);
+        showToast('点赞成功！', 'success');
+      }
+      return newSet;
+    });
+  };
+  
+  // 回复评论
+  const handleReplyClick = (commentId: string) => {
+    setReplyTo(replyTo === commentId ? null : commentId);
+    if (replyTo !== commentId) {
+      const comment = comments.find(c => c.id === commentId);
+      if (comment) {
+        setCommentText(`@${comment.author} `);
+      }
+    } else {
+      setCommentText('');
+    }
+  };
+  
+  // 插入话题
+  const handleTopicClick = () => {
+    setShowTopicDropdown(!showTopicDropdown);
+  };
+  
+  const insertTopic = (topic: string) => {
+    setCommentText(prev => prev + `#${topic}# `);
+    setShowTopicDropdown(false);
+  };
+  
+  // 收藏功能
   const handleBookmarkToggle = () => {
     if (!isBookmarked) {
       setIsBookmarked(true);
       showToast('已收藏！', 'success');
-      setTimeout(() => {
-        setShowFolderDropdown(true);
-      }, 200);
     } else {
       setIsBookmarked(false);
       showToast('已取消收藏', 'info');
@@ -158,7 +215,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     }
   };
   
-  // ==================== 评论功能 ====================
+  // 提交评论
   const handleSubmitComment = () => {
     if (!commentText.trim()) return;
     
@@ -168,12 +225,36 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
       avatar: '我',
       date: new Date().toISOString().split('T')[0],
       content: commentText.trim(),
-      isOfficial: false
+      isOfficial: false,
+      likes: 0,
+      replies: []
     };
     
-    setComments([newComment, ...comments]);
+    if (replyTo) {
+      // 添加回复
+      setComments(prev => prev.map(c => {
+        if (c.id === replyTo) {
+          return {
+            ...c,
+            replies: [...(c.replies || []), {
+              id: Date.now().toString(),
+              author: '当前用户',
+              avatar: '我',
+              date: new Date().toISOString().split('T')[0],
+              content: commentText.trim()
+            }]
+          };
+        }
+        return c;
+      }));
+      showToast('回复发布成功！', 'success');
+      setReplyTo(null);
+    } else {
+      setComments([newComment, ...comments]);
+      showToast('评论发布成功！', 'success');
+    }
+    
     setCommentText('');
-    showToast('评论发布成功！', 'success');
     
     if (onTrackInteraction) {
       onTrackInteraction('comment');
@@ -200,13 +281,16 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
       if (folderDropdownRef.current && !folderDropdownRef.current.contains(event.target as Node)) {
         setShowFolderDropdown(false);
       }
+      if (topicDropdownRef.current && !topicDropdownRef.current.contains(event.target as Node)) {
+        setShowTopicDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 自动滚动到指定媒体区域
+  // 自动滚动
   useEffect(() => {
     if (!autoFocus) return;
     
@@ -224,6 +308,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
+  // 视频控制
   const toggleVideo = () => {
     if (videoRef.current) {
       if (isPlayingVideo) {
@@ -243,6 +328,33 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     if (videoRef.current) videoRef.current.playbackRate = nextSpeed;
   };
 
+  // 全屏功能
+  const toggleFullscreen = async () => {
+    if (!videoContainerRef.current) return;
+    
+    try {
+      if (!document.fullscreenElement) {
+        await videoContainerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('全屏切换失败:', error);
+      showToast('全屏切换失败', 'error' as any);
+    }
+  };
+
+  // 监听全屏变化
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   const toggleAudio = () => {
     if (audioRef.current) {
       if (isPlayingAudio) {
@@ -260,7 +372,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // 滚动到评论区
   const scrollToComment = () => {
     const commentSection = document.getElementById('comment-section');
     if (commentSection) {
@@ -268,12 +379,18 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
     }
   };
 
+  // 处理视频点击播放
+  const handleVideoContainerClick = (e: React.MouseEvent) => {
+    // 如果点击的是控制按钮区域，不触发播放
+    if ((e.target as HTMLElement).closest('.video-controls')) return;
+    toggleVideo();
+  };
+
   return (
-    <div className="min-h-full bg-slate-50 pb-24">
-      {/* 内容区域 */}
+    <div className="min-h-full bg-slate-50 pb-12">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         
-        {/* 1. 标题区 - 白色卡片 */}
+        {/* 1. 标题区 */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -283,13 +400,11 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
             {expertCase.title}
           </h1>
           
-          {/* 金色分隔线 */}
           <div className="w-12 h-0.5 bg-amber-400 mb-4"></div>
           
-          {/* 专家信息 - 简化版 */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold text-sm overflow-hidden cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all">
                 {expert?.avatar ? (
                   <img src={expert.avatar} alt={expert.name} className="w-full h-full object-cover" />
                 ) : (
@@ -315,7 +430,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
           </div>
         </motion.div>
 
-        {/* 2. 视频区块 - 白色卡片 */}
+        {/* 2. 视频区块 */}
         {expertCase.videoUrl && (
           <motion.div 
             ref={videoSectionRef}
@@ -324,23 +439,45 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
             transition={{ delay: 0.1 }}
             className="bg-white rounded-lg shadow-sm p-6"
           >
-            <div className="aspect-video bg-black relative group rounded-lg overflow-hidden">
+            <div 
+              ref={videoContainerRef}
+              className="aspect-video bg-black relative group rounded-lg overflow-hidden cursor-pointer"
+              onClick={handleVideoContainerClick}
+            >
+              {/* 加载状态 */}
+              {isVideoLoading && (
+                <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-10">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+                    <span className="text-sm text-slate-400">视频加载中...</span>
+                  </div>
+                </div>
+              )}
+              
               <video 
                 ref={videoRef}
                 className="w-full h-full"
                 poster={`https://picsum.photos/seed/${expertCase.id}-video/1280/720`}
                 onTimeUpdate={() => setVideoCurrentTime(videoRef.current?.currentTime || 0)}
-                onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
+                onLoadedMetadata={() => {
+                  setVideoDuration(videoRef.current?.duration || 0);
+                  setIsVideoLoading(false);
+                }}
                 onEnded={() => setIsPlayingVideo(false)}
+                onWaiting={() => setIsVideoLoading(true)}
+                onPlaying={() => setIsVideoLoading(false)}
               >
                 <source src={expertCase.videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4'} type="video/mp4" />
               </video>
               
               {/* Custom Controls Overlay */}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+              <div className="video-controls absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                 <div className="bg-black/40 backdrop-blur-md rounded-xl p-3 flex items-center justify-between text-white">
                   <div className="flex items-center gap-3">
-                    <button onClick={toggleVideo} className="hover:text-amber-400 transition-colors">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
+                      className="hover:text-amber-400 transition-colors"
+                    >
                       {isPlayingVideo ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
                     </button>
                     <div className="text-xs font-mono">
@@ -349,21 +486,25 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={handleVideoSpeed}
+                      onClick={(e) => { e.stopPropagation(); handleVideoSpeed(); }}
                       className="text-xs font-bold px-2 py-0.5 border border-white/30 rounded hover:bg-white/20 transition-all"
                     >
                       {videoSpeed}x
                     </button>
-                    <button className="hover:text-amber-400 transition-colors">
-                      <Maximize2 className="w-4 h-4" />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                      className="hover:text-amber-400 transition-colors"
+                    >
+                      {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
               </div>
               
-              {!isPlayingVideo && (
+              {/* 播放按钮 */}
+              {!isPlayingVideo && !isVideoLoading && (
                 <button 
-                  onClick={toggleVideo}
+                  onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
                   className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform"
                 >
                   <div className="w-14 h-14 bg-amber-400 rounded-full flex items-center justify-center shadow-xl">
@@ -375,7 +516,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
           </motion.div>
         )}
 
-        {/* 3. 音频+正文合并区块 - 白色卡片 */}
+        {/* 3. 音频+正文合并区块 */}
         <motion.div 
           ref={contentSectionRef}
           initial={{ opacity: 0, y: 20 }}
@@ -389,18 +530,28 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
               <audio
                 ref={audioRef}
                 onTimeUpdate={() => setAudioCurrentTime(audioRef.current?.currentTime || 0)}
-                onLoadedMetadata={() => setAudioDuration(audioRef.current?.duration || 0)}
+                onLoadedMetadata={() => {
+                  setAudioDuration(audioRef.current?.duration || 0);
+                  setIsAudioLoading(false);
+                }}
                 onEnded={() => setIsPlayingAudio(false)}
+                onWaiting={() => setIsAudioLoading(true)}
+                onPlaying={() => setIsAudioLoading(false)}
               >
-                <source src={expertCase.audioUrl || 'https://www.w3schools.com/html/horse.mp3'} type="audio/mpeg" />
+                <source src={expertCase.audioUrl} type="audio/mpeg" />
               </audio>
               
               <div className="flex items-center gap-4 bg-slate-50 rounded-xl p-4 mb-6">
                 <button
                   onClick={toggleAudio}
-                  className="w-12 h-12 bg-amber-400 rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-all flex-shrink-0"
+                  disabled={isAudioLoading}
+                  className="w-12 h-12 bg-amber-400 rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-all flex-shrink-0 disabled:opacity-50"
                 >
-                  {isPlayingAudio ? <Pause className="w-5 h-5 text-white fill-current" /> : <Play className="w-5 h-5 text-white fill-current ml-0.5" />}
+                  {isAudioLoading ? (
+                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  ) : (
+                    isPlayingAudio ? <Pause className="w-5 h-5 text-white fill-current" /> : <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                  )}
                 </button>
                 
                 <div className="flex-1 min-w-0">
@@ -433,12 +584,11 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
                 </div>
               </div>
               
-              {/* 分隔线 */}
-              <div className="h-px bg-slate-200 mb-6"></div>
+              <div className="h-px bg-slate-100 mb-6"></div>
             </>
           )}
           
-          {/* 正文内容 */}
+          {/* 正文内容 - Markdown 渲染 */}
           <div className="prose prose-slate max-w-none">
             {expertCase.coverImage && (
               <div className="mb-6 rounded-xl overflow-hidden">
@@ -451,15 +601,15 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
               </div>
             )}
             
-            <div className="space-y-4 text-slate-700 leading-relaxed">
-              {expertCase.content.split('\n\n').map((para, i) => (
-                <p key={i} className="text-base">{para}</p>
-              ))}
+            <div className="text-slate-700 leading-relaxed">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {expertCase.content}
+              </ReactMarkdown>
             </div>
           </div>
         </motion.div>
 
-        {/* 4. 讨论区 - 白色卡片 */}
+        {/* 4. 讨论区 */}
         <motion.div 
           id="comment-section"
           initial={{ opacity: 0, y: 20 }}
@@ -467,8 +617,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
           transition={{ delay: 0.3 }}
           className="bg-white rounded-lg shadow-sm p-6"
         >
-          {/* 讨论区标题 */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-amber-400" />
               讨论区
@@ -498,9 +647,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
             </div>
           </div>
           
-          {/* 金色分隔线 */}
-          <div className="w-12 h-0.5 bg-amber-400 mb-6"></div>
-          
           {/* 评论输入 */}
           <div className="mb-6">
             <div className="flex gap-3">
@@ -509,20 +655,57 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
               </div>
               <div className="flex-1">
                 <div className="bg-slate-50 rounded-xl p-4">
+                  {replyTo && (
+                    <div className="flex items-center justify-between mb-2 text-xs text-slate-500">
+                      <span>正在回复...</span>
+                      <button 
+                        onClick={() => { setReplyTo(null); setCommentText(''); }}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey && e.key === 'Enter') {
+                        handleSubmitComment();
+                      }
+                    }}
                     placeholder="分享你的观点，与专家互动..."
-                    className="w-full bg-transparent border-none outline-none resize-none text-slate-700 placeholder-slate-400 min-h-[80px]"
+                    className="w-full bg-transparent border-none outline-none resize-none text-slate-700 placeholder-slate-400 min-h-[120px]"
                     maxLength={5000}
                   />
                   <div className="flex items-center justify-between mt-3">
-                    <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-sm">
-                      <Hash className="w-4 h-4" />
-                      <span>话题</span>
-                    </button>
+                    <div className="relative" ref={topicDropdownRef}>
+                      <button 
+                        onClick={handleTopicClick}
+                        className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-sm"
+                      >
+                        <Hash className="w-4 h-4" />
+                        <span>话题</span>
+                      </button>
+                      
+                      {/* 话题下拉 */}
+                      {showTopicDropdown && (
+                        <div className="absolute top-full left-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50">
+                          {topics.map(topic => (
+                            <button
+                              key={topic}
+                              onClick={() => insertTopic(topic)}
+                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                            >
+                              #{topic}#
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-slate-400">{commentText.length}/5000</span>
+                      <span className="text-xs text-slate-400">Ctrl+Enter 发送</span>
                       <button 
                         onClick={handleSubmitComment}
                         disabled={!commentText.trim()}
@@ -547,7 +730,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
               <div key={comment.id} className="flex gap-3 pb-4 border-b border-slate-100 last:border-none">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
                   comment.isOfficial
-                    ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+                    ? 'bg-gradient-to-br from-blue-600 to-blue-700'
                     : 'bg-gradient-to-br from-slate-400 to-slate-500'
                 }`}>
                   {comment.avatar}
@@ -557,7 +740,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium text-slate-900 text-sm">{comment.author}</span>
                     {comment.isOfficial && (
-                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 text-xs rounded">
+                      <span className="px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded">
                         官方
                       </span>
                     )}
@@ -565,14 +748,44 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
                   </div>
                   <p className="text-slate-700 leading-relaxed whitespace-pre-wrap text-sm">{comment.content}</p>
                   
+                  {/* 回复列表 */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {comment.replies.map(reply => (
+                        <div key={reply.id} className="flex gap-2 bg-slate-50 rounded-lg p-3">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                            {reply.avatar}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-slate-900 text-xs">{reply.author}</span>
+                              <span className="text-xs text-slate-400">{reply.date}</span>
+                            </div>
+                            <p className="text-slate-700 text-xs leading-relaxed">{reply.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-4 mt-2">
-                    <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-xs">
+                    <button 
+                      onClick={() => handleReplyClick(comment.id)}
+                      className={`flex items-center gap-1 transition-colors text-xs ${
+                        replyTo === comment.id ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>回复</span>
                     </button>
-                    <button className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors text-xs">
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>点赞</span>
+                    <button 
+                      onClick={() => handleCommentLike(comment.id)}
+                      className={`flex items-center gap-1 transition-colors text-xs ${
+                        commentLikes.has(comment.id) ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      <ThumbsUp className={`w-3.5 h-3.5 ${commentLikes.has(comment.id) ? 'fill-current' : ''}`} />
+                      <span>{(comment.likes || 0) + (commentLikes.has(comment.id) ? 1 : 0)}</span>
                     </button>
                   </div>
                 </div>
@@ -590,7 +803,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3"
+            className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3"
           >
             {toast.type === 'success' ? (
               <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
@@ -638,17 +851,11 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
               </div>
               <div className="bg-slate-50 rounded-2xl p-8 mb-6">
                 <div className="w-48 h-48 mx-auto bg-white rounded-xl p-4 shadow-sm">
-                  <div className="w-full h-full bg-slate-200 rounded-lg flex items-center justify-center">
-                    <div className="grid grid-cols-5 gap-1 w-32 h-32">
-                      {[...Array(25)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`${[0,2,4,6,8,10,12,14,16,18,20,22,24].includes(i) ? 'bg-slate-800' : 'bg-white'} rounded-sm`}
-                          style={{ aspectRatio: '1' }}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`}
+                    alt="微信分享二维码"
+                    className="w-full h-full"
+                  />
                 </div>
               </div>
               <p className="text-sm text-slate-500">
@@ -709,7 +916,7 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
                       setShowTeamShareModal(false);
                     }}
                   >
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white font-bold text-sm">
                       {colleague.avatar}
                     </div>
                     <div className="text-left">
@@ -726,7 +933,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
 
       {/* 右下角悬浮操作按钮组 */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-        {/* 点赞 */}
         <button
           onClick={handleLikeToggle}
           className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 ${
@@ -739,7 +945,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
           <ThumbsUp className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
         </button>
         
-        {/* 评论 */}
         <button
           onClick={scrollToComment}
           className="w-12 h-12 rounded-full bg-white shadow-lg text-slate-400 hover:text-amber-400 flex items-center justify-center transition-all duration-200 hover:scale-110"
@@ -748,7 +953,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
           <MessageSquare className="w-5 h-5" />
         </button>
         
-        {/* 收藏 */}
         <div className="relative" ref={folderDropdownRef}>
           <button
             onClick={handleBookmarkToggle}
@@ -802,7 +1006,6 @@ export const ExpertCaseDetail: React.FC<ExpertCaseDetailProps> = ({
           </AnimatePresence>
         </div>
         
-        {/* 分享 */}
         <div className="relative" ref={shareDropdownRef}>
           <button
             onClick={handleShareClick}
