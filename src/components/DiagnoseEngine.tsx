@@ -1,23 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ProfileContext } from '../types';
+import { ProfileContext, DiagnoseDimension } from '../types';
 import { ArrowRight, ChevronRight, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { calculateRiskAssessment, RiskAssessment } from '../services/ai-service';
 
-interface Option {
-  label: string;
-  desc: string;
-}
+// 本地类型别名以保持代码简洁
+type Dimension = DiagnoseDimension;
 
-interface Dimension {
-  id: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  options: Option[];
-}
-
-const DIMENSIONS_MAP: Record<string, Dimension[]> = {
+const DIMENSIONS_MAP: Record<string, DiagnoseDimension[]> = {
   talent: [
     {
       id: 'criticality',
@@ -274,7 +264,7 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
               return (
                 <motion.div
                   key={dim.id}
-                  ref={el => dimensionRefs.current[index] = el}
+                  ref={(el: HTMLDivElement | null) => { dimensionRefs.current[index] = el; }}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ 
                     opacity: isActive ? 1 : isCompleted ? 0.9 : 0.6,

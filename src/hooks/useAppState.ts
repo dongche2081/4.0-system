@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AppView, ProfileContext, HistoryItem, UserStats, StudyRecord, SimulationRecord, Topic, Expert } from '../types';
+import { AppView, ProfileContext, HistoryItem, UserStats, StudyRecord, SimulationRecord, Topic, Expert, Prescription, DiagnosticContext } from '../types';
 import { EXPERTS, EXPERT_CASES } from '../data';
 
 export function useAppState() {
@@ -83,6 +83,30 @@ export function useAppState() {
 
   // 目标话题ID（用于页面间跳转）
   const [targetTopicId, setTargetTopicId] = useState<string | null>(null);
+
+  // 待诊断查询（用于页面间传递用户输入）
+  const [pendingQuery, setPendingQuery] = useState<string>('');
+
+  // 选中的话题
+  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+
+  // 诊断上下文
+  const [diagnosticContext, setDiagnosticContext] = useState<DiagnosticContext | null>(null);
+
+  // AI 反馈
+  const [aiFeedback, setAiFeedback] = useState<string>('');
+
+  // 当前处方
+  const [activePrescription, setActivePrescription] = useState<Prescription | null>(null);
+
+  // 活跃历史记录 ID
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+
+  // 是否正在生成反馈
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+
+  // 选中的场景
+  const [selectedScenario, setSelectedScenario] = useState<any | null>(null);
 
   // 记录学习行为
   const recordStudyAction = (topic: Topic, expert: Expert, action: 'view' | 'bookmark' | 'share', duration: number = 0) => {
@@ -185,6 +209,22 @@ export function useAppState() {
     setExperts,
     targetTopicId,
     setTargetTopicId,
+    pendingQuery,
+    setPendingQuery,
+    selectedTopic,
+    setSelectedTopic,
+    diagnosticContext,
+    setDiagnosticContext,
+    aiFeedback,
+    setAiFeedback,
+    activePrescription,
+    setActivePrescription,
+    activeHistoryId,
+    setActiveHistoryId,
+    isGeneratingFeedback,
+    setIsGeneratingFeedback,
+    selectedScenario,
+    setSelectedScenario,
     // 业务函数
     recordStudyAction,
     recordPracticeAction,

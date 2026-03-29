@@ -152,6 +152,25 @@ export interface Prescription {
   redLines: string[];
 }
 
+// 诊断引擎相关类型
+export interface DiagnoseOption {
+  label: string;
+  desc: string;
+}
+
+export interface DiagnoseDimension {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  options: DiagnoseOption[];
+}
+
+// 场景映射配置类型
+export interface ScenarioMapping {
+  [topicId: string]: string;
+}
+
 // 历史记录相关类型
 export interface StudyRecord {
   id: string;
