@@ -434,7 +434,7 @@ export const TacticalBriefing: React.FC<Props> = ({
                           )}
                         </div>
                         <div className="text-[10px] text-slate-400 font-bold truncate">
-                          {expert.title}
+                          {expert.department ? `${expert.department} · ${expert.position || expert.title}` : expert.title}
                         </div>
                         {matchInfo && (
                           <div className="flex items-center gap-2 mt-1">

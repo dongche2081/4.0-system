@@ -22,10 +22,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const menuItems = [
-    { id: 'home', icon: BookOpen, label: '学一学', subLabel: '学习标杆实践', path: '/' },
+    { id: 'home', icon: BookOpen, label: '问一问', subLabel: '向AI专家提问', path: '/' },
     { id: 'practice', icon: Target, label: '练一练', subLabel: '情景模拟练习', path: '/practice' },
     { id: 'diagnose-start', icon: Activity, label: '聊一聊', subLabel: '深度智能诊断', path: '/diagnose-start' },
-    { id: 'history', icon: History, label: '历史档案', subLabel: '指挥官档案库', path: '/history' },
+    { id: 'history', icon: History, label: '历史记录', subLabel: '我的过往操作', path: '/history' },
   ];
 
   return (

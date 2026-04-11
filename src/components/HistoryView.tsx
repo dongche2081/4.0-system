@@ -287,7 +287,7 @@ export const HistoryView: React.FC<Props> = ({
       {/* 头部标题 */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-black text-slate-900 flex items-center">
-          <HistoryIcon className="w-6 h-6 mr-3 text-[#F2C94C]" /> 历史档案
+          <HistoryIcon className="w-6 h-6 mr-3 text-[#F2C94C]" /> 历史记录
         </h2>
         {canClear && currentListLength > 0 && (
           <button

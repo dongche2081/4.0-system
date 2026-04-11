@@ -221,6 +221,9 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
 
       {/* 进度条 */}
       <div className="max-w-6xl mx-auto mb-6">
+        <p className="text-base font-bold text-slate-900 mb-3">
+          {query || '正在针对特定管理场景进行深度研判...'}
+        </p>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-slate-600">诊断进度</span>
           <span className="text-sm font-bold text-[#F2C94C]">{completedCount}/{dimensions.length}</span>
@@ -238,23 +241,6 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
       <div className="max-w-6xl mx-auto flex gap-6">
         {/* 左侧主内容区 */}
         <div className="flex-1 space-y-4">
-          {/* 标题区 - 压缩 */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-900 mb-1">回答调研题目</h2>
-            <p className="text-slate-500 text-sm">请根据您的实际情况选择最符合的选项</p>
-          </div>
-
-          {/* 问题回显 */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-1 h-4 bg-[#F2C94C] rounded-full" />
-              <span className="text-sm font-medium text-slate-500">您描述的问题</span>
-            </div>
-            <p className="text-slate-700 leading-relaxed text-sm">
-              "{query || '正在针对特定管理场景进行深度研判...'}"
-            </p>
-          </div>
-
           {/* 题目卡片 */}
           <div className="space-y-4">
             {dimensions.map((dim, index) => {
@@ -338,7 +324,7 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
           >
             <div className="mb-3">
               <h3 className="text-base font-bold text-slate-900 mb-1">
-                补充细节（可选）
+                请再补充一些您团队针对该管理痛点的细节情况？
               </h3>
               <p className="text-slate-500 text-xs">
                 还有哪些只有你知道的现场细节？

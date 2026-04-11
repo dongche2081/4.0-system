@@ -275,7 +275,7 @@ function AppContent() {
     const savedHistory = JSON.parse(localStorage.getItem('management_history') || '[]');
     localStorage.setItem('management_history', JSON.stringify([historyItem, ...savedHistory]));
     
-    navigate(`/topic/${topic.id}`);
+    navigate('/diagnose-result');
     setView('diagnose-start');
     setTargetTopicId(null);
   };
@@ -500,7 +500,8 @@ function AppContent() {
                       <div className="flex-1 flex flex-col items-center justify-center py-8 md:py-12">
                         <div className="text-center mb-8 animate-[fadeIn_0.8s_ease-out]">
                           <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
-                            输入你的管理痛点<br/>AI将为您自动匹配资深管理者的实战经验
+                            今天有什么可以帮你？<br/>
+                            <span className="text-lg md:text-xl font-medium text-slate-600">输入你的管理痛点，AI将为你自动匹配自身管理者的实战经验</span>
                           </h2>
                           {renderEmergencyBulletin()}
                         </div>

@@ -48,7 +48,7 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
   // Booking modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('人才留存');
-  const [selectedUrgency, setSelectedUrgency] = useState('常规复盘');
+
   const [selectedMethod, setSelectedMethod] = useState('语音电话');
   const [showSuccess, setShowSuccess] = useState(false);
   const [userPoints, setUserPoints] = useState(1200);
@@ -115,7 +115,9 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
               <div className="flex items-start justify-between">
                 <div>
                   <h1 className="text-2xl font-bold text-slate-900 mb-1">{expert.name}</h1>
-                  <p className="text-sm text-slate-500 mb-2">{expert.title}</p>
+                  <p className="text-sm text-slate-500 mb-1">
+                    {expert.department ? `${expert.department} · ${expert.position || expert.title}` : expert.title}
+                  </p>
                   <div className="flex items-center gap-1 text-sm text-slate-400">
                     <MapPin className="w-4 h-4" />
                     <span>北京</span>
@@ -393,26 +395,6 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
                           }`}
                         >
                           {theme}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 紧急程度 */}
-                  <div className="space-y-3 mb-6">
-                    <div className="text-sm font-bold text-slate-900">紧急程度</div>
-                    <div className="flex flex-wrap gap-2">
-                      {['常规复盘', '火速支援', '战区特急'].map(urgency => (
-                        <button
-                          key={urgency}
-                          onClick={() => setSelectedUrgency(urgency)}
-                          className={`px-4 py-2 rounded-xl text-sm transition-colors ${
-                            selectedUrgency === urgency 
-                              ? 'bg-[#F2C94C] text-white' 
-                              : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {urgency}
                         </button>
                       ))}
                     </div>

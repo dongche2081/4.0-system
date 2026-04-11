@@ -15,8 +15,8 @@ export const DiagnoseResultLayout: React.FC<DiagnoseResultLayoutProps> = ({
   const navigate = useNavigate();
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const [inputHeight, setInputHeight] = useState(80);
-  const matchedExperts = EXPERTS.slice(0, 3);
-  const recommendedScenarios = Object.values(SCENARIO_DATA).slice(0, 3);
+  const matchedExperts = EXPERTS.slice(0, 2);
+  const recommendedScenarios = Object.values(SCENARIO_DATA).slice(0, 2);
 
   useEffect(() => {
     if (inputAreaRef.current) {
@@ -101,7 +101,9 @@ export const DiagnoseResultLayout: React.FC<DiagnoseResultLayoutProps> = ({
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900 truncate">{expert.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{expert.title}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {expert.department ? `${expert.department} · ${expert.position || expert.title}` : expert.title}
+                    </p>
                     <div className="flex gap-1 mt-1 flex-wrap">
                       {expert.topics.slice(0, 2).map((t, i) => (
                         <span key={i} className="px-2 py-0.5 bg-[#F2C94C]/10 text-[#F2C94C] text-xs rounded">

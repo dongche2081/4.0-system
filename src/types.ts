@@ -24,6 +24,8 @@ export interface Expert {
   id: string;
   name: string;
   title: string;
+  department?: string;
+  position?: string;
   avatar: string;
   bio: string;
   quote: string;

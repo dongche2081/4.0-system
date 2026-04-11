@@ -407,7 +407,7 @@ export const DiagnosticResultView: React.FC<Props> = ({
                 <h3 className="text-[9px] font-black text-slate-400 tracking-widest uppercase">推荐专家</h3>
               </div>
               <div className="space-y-3">
-                {expertResources.slice(0, 4).map((expert, idx) => {
+                {expertResources.slice(0, 2).map((expert, idx) => {
                   const matchInfo = expertMatches.find(m => m.expertId === expert.id);
                   return (
                     <div
@@ -432,7 +432,9 @@ export const DiagnosticResultView: React.FC<Props> = ({
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-bold truncate">{expert.title}</div>
+                          <div className="text-[10px] text-slate-400 font-bold truncate">
+                            {expert.department ? `${expert.department} · ${expert.position || expert.title}` : expert.title}
+                          </div>
                           {matchInfo && (
                             <div className="flex items-center gap-2 mt-1">
                               <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">

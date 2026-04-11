@@ -34,16 +34,16 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({ expert, topicId }) => {
         />
       </div>
 
-      {/* Middle: Info - BG/岗位/姓名 */}
+      {/* Middle: Info - 姓名/部门/职务 */}
       <div className="flex-grow min-w-0">
-        <div className="text-[10px] font-bold text-[#F2C94C] uppercase tracking-wider mb-0.5 truncate">
-          {expert.resume?.[0] || '事业部'}
-        </div>
-        <div className="text-xs text-slate-400 font-bold mb-1 truncate">
-          {expert.title}
-        </div>
-        <div className="text-base font-black text-slate-900 truncate">
+        <div className="text-base font-black text-slate-900 truncate mb-0.5">
           {expert.name}
+        </div>
+        <div className="text-[10px] font-bold text-[#F2C94C] uppercase tracking-wider mb-0.5 truncate">
+          {expert.department || expert.resume?.[0] || '事业部'}
+        </div>
+        <div className="text-xs text-slate-400 font-bold truncate">
+          {expert.position || expert.title}
         </div>
       </div>
 

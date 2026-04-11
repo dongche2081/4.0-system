@@ -70,7 +70,7 @@ const DiagnoseStartPage: React.FC = () => {
               <span className="text-[#F2C94C]">AI</span> 诊断你的管理困境
             </h1>
             <p className="text-slate-500 text-base max-w-xl mx-auto">
-              描述场景，回答几道题目，AI 生成定制化方案
+              描述您面临的挑战，并且回答几个针对性问题，AI将为您生成个性化行动建议。
             </p>
           </div>
 

@@ -11,7 +11,7 @@ import { motion } from 'motion/react';
 import { calculateExpertMatches } from '../services/ai-service';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Toast, useToast } from './Toast';
-import { ConfirmModal } from './ConfirmModal';
+
 import { FeedbackModal } from './FeedbackModal';
 import { ContributeModal } from './ContributeModal';
 import { TOPIC_DETAIL_MESSAGES, TOPIC_DETAIL_CONSTANTS } from '../constants/messages';
@@ -138,11 +138,7 @@ export const StudyDetailView: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
   
-  // 弹窗状态
-  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean; type: 'chat' | 'practice'}>({ 
-    isOpen: false, 
-    type: 'chat' 
-  });
+
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [contributeModalOpen, setContributeModalOpen] = useState(false);
 
@@ -234,21 +230,12 @@ export const StudyDetailView: React.FC<Props> = ({
 
   // 导航到聊一聊
   const handleNavigateToChat = () => {
-    setConfirmModal({ isOpen: true, type: 'chat' });
+    onNavigateToDiagnosis?.(topic.id);
   };
 
   // 导航到练一练
   const handleNavigateToPractice = () => {
-    setConfirmModal({ isOpen: true, type: 'practice' });
-  };
-
-  // 确认跳转
-  const handleConfirmNavigate = () => {
-    if (confirmModal.type === 'chat') {
-      onNavigateToDiagnosis?.(topic.id);
-    } else {
-      onNavigateToPractice?.(topic.id);
-    }
+    onNavigateToPractice?.(topic.id);
   };
 
   if (isLoading) {
@@ -465,14 +452,17 @@ export const StudyDetailView: React.FC<Props> = ({
                             alt={expert.name}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="text-sm font-bold text-slate-900 mb-1 group-hover:text-amber-500 transition-colors line-clamp-1">
+                          <div className="text-sm font-bold text-slate-900 mb-0.5 group-hover:text-amber-500 transition-colors line-clamp-1">
                             {expert.name}
                           </div>
                         </div>
                         
-                        {/* 职位 */}
-                        <div className="text-xs text-slate-500 mb-3 line-clamp-1" title={expert.title}>
-                          {expert.title}
+                        {/* 部门 + 职务 */}
+                        <div className="text-[10px] text-slate-400 mb-1 line-clamp-1" title={expert.department}>
+                          {expert.department || ''}
+                        </div>
+                        <div className="text-xs text-slate-500 mb-3 line-clamp-1" title={expert.position || expert.title}>
+                          {expert.position || expert.title}
                         </div>
                         
                         {/* 操作按钮 */}
@@ -576,17 +566,6 @@ export const StudyDetailView: React.FC<Props> = ({
 
         {/* Toast 提示 */}
         <Toast toasts={toasts} onRemove={removeToast} />
-
-        {/* 确认弹窗 */}
-        <ConfirmModal
-          isOpen={confirmModal.isOpen}
-          onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-          onConfirm={handleConfirmNavigate}
-          title={confirmModal.type === 'chat' ? TOPIC_DETAIL_MESSAGES.confirm.chatTitle : TOPIC_DETAIL_MESSAGES.confirm.practiceTitle}
-          message={confirmModal.type === 'chat' ? TOPIC_DETAIL_MESSAGES.confirm.chatMessage : TOPIC_DETAIL_MESSAGES.confirm.practiceMessage}
-          confirmText={TOPIC_DETAIL_MESSAGES.confirm.confirm}
-          cancelText={TOPIC_DETAIL_MESSAGES.confirm.cancel}
-        />
 
         {/* 反馈弹窗 */}
         <FeedbackModal

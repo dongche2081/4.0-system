@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Mic, ArrowRight, Zap } from 'lucide-react';
+import { Search, Mic, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
@@ -85,11 +85,11 @@ export const IntentionCapture: React.FC<Props> = ({
           )}
           <button
             onClick={handleSearch}
-            className={`p-2.5 rounded-2xl transition-all ${
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
               query.trim() ? 'bg-[#F2C94C] text-white' : 'bg-slate-50 text-slate-300'
             }`}
           >
-            <ArrowRight className="w-5 h-5" />
+            立即提问
           </button>
         </div>
       </motion.div>

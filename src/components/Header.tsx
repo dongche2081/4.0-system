@@ -166,11 +166,11 @@ export const Header: React.FC<HeaderProps> = ({ view, setView, selectedTopic, se
                 </>
               )}
 
-              {/* 历史档案页面的面包屑：首页 > 历史档案 */}
+              {/* 历史记录页面的面包屑：首页 > 历史记录 */}
               {isHistory && (
                 <>
                   <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
-                  <span className="text-[#0A0F1D] font-medium">历史档案</span>
+                  <span className="text-[#0A0F1D] font-medium">历史记录</span>
                 </>
               )}
 

@@ -33,6 +33,9 @@ export const ExpertLeaderboard: React.FC<{ experts: Expert[], onExpertClick: (e:
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold text-slate-900 truncate group-hover:text-[#F2C94C] transition-colors duration-300">{expert.name}</div>
+              <div className="text-[10px] text-slate-500 truncate">
+                {expert.department ? `${expert.department} · ${expert.position || expert.title}` : expert.title}
+              </div>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-[10px] text-[#F2C94C] font-bold">{expert.points.toLocaleString()}积分</span>
                 <span className="text-[10px] text-slate-400">{expert.stats.prescriptions}次贡献</span>
