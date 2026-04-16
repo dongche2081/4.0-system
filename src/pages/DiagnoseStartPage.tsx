@@ -61,11 +61,11 @@ const DiagnoseStartPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col bg-[#F8FAFC]">
-      {/* 顶部 - 输入区 */}
-      <div className="flex-shrink-0 flex flex-col items-center justify-center px-6 pt-10 pb-8">
-        <div className="w-full max-w-3xl space-y-6">
+      {/* 顶部 - 标题 + 步骤指示器 */}
+      <div className="flex-shrink-0 flex flex-col items-center justify-center px-6 pt-8 pb-4">
+        <div className="w-full max-w-3xl space-y-4">
           {/* 标题区 */}
-          <div className="text-center space-y-3">
+          <div className="text-center space-y-2">
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">
               <span className="text-[#F2C94C]">AI</span> 诊断你的管理困境
             </h1>
@@ -74,91 +74,108 @@ const DiagnoseStartPage: React.FC = () => {
             </p>
           </div>
 
-          {/* 搜索输入区 */}
-          <div className="space-y-3">
-            <div className={`rounded-xl transition-all ${showEmptyTip ? 'animate-pulse ring-2 ring-red-400' : ''}`}>
-              <IntentionCapture
-                mode="new-search"
-                placeholder="描述你的管理困境..."
-                onSearch={(query) => {
-                  setPendingQuery(query);
-                  navigate('/diagnose-engine');
-                }}
-              />
-            </div>
-            <button
-              onClick={handleStartDiagnose}
-              disabled={isLoading}
-              className={`w-full py-4 bg-[#F2C94C] hover:bg-[#E5B73B] text-white font-black text-lg rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-                !inputValue.trim() && !pendingQuery.trim() ? 'opacity-80' : ''
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  准备中...
-                </>
-              ) : (
-                '开始 AI 诊断'
-              )}
-            </button>
-            {showEmptyTip && (
-              <p className="text-center text-sm text-red-500 animate-pulse">
-                请先描述你的管理困境
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 诊断流程 */}
-      <div className="flex-shrink-0 px-6 py-6">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-center text-base font-medium text-slate-600 mb-6">诊断流程</p>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
-            <div className="text-center">
-              <div className="w-10 h-10 mx-auto mb-2 bg-[#F2C94C] rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
-              <h4 className="font-bold text-slate-800 mb-1">描述场景</h4>
-              <p className="text-xs text-slate-500">输入你的管理困境</p>
-            </div>
-            <div className="hidden md:block text-slate-300">→</div>
-            <div className="text-center">
-              <div className="w-10 h-10 mx-auto mb-2 bg-[#F2C94C] rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
-              <h4 className="font-bold text-slate-800 mb-1">回答题目</h4>
-              <p className="text-xs text-slate-500">几道关键调研题目</p>
-            </div>
-            <div className="hidden md:block text-slate-300">→</div>
-            <div className="text-center">
-              <div className="w-10 h-10 mx-auto mb-2 bg-[#F2C94C] rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
-              <h4 className="font-bold text-slate-800 mb-1">AI 生成</h4>
-              <p className="text-xs text-slate-500">定制化，可追问</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 中部 - 常见困境 */}
-      <div className="flex-1 px-6 pb-8 overflow-y-auto">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
-            <h3 className="text-base font-bold text-slate-800">常见困境</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {COMMON_PROBLEMS.map((item, i) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                onClick={() => !isLoading && handleCardClick(item.desc)}
-                className={`p-5 bg-white border border-slate-200 rounded-2xl hover:border-[#F2C94C] hover:shadow-lg hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
-              >
-                <h4 className="font-bold text-slate-800 mb-2 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
-                <p className="text-sm text-slate-600 leading-relaxed">{item.desc}</p>
-              </motion.div>
+          {/* 步骤指示器 */}
+          <div className="flex items-center justify-center gap-2 md:gap-4 py-2">
+            {[
+              { step: 1, title: '描述场景', desc: '输入你的管理困境' },
+              { step: 2, title: '回答题目', desc: '几道关键调研题目' },
+              { step: 3, title: 'AI 生成', desc: '定制化，可追问' },
+            ].map((s, idx) => (
+              <React.Fragment key={s.step}>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  s.step === 1 
+                    ? 'bg-[#F2C94C] border-[#F2C94C] text-white shadow-md' 
+                    : 'bg-white border-slate-200 text-slate-400'
+                }`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    s.step === 1 ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {s.step}
+                  </div>
+                  <div className="hidden md:block">
+                    <div className={`text-sm font-bold ${s.step === 1 ? 'text-white' : 'text-slate-600'}`}>{s.title}</div>
+                    <div className={`text-[10px] ${s.step === 1 ? 'text-white/80' : 'text-slate-400'}`}>{s.desc}</div>
+                  </div>
+                </div>
+                {idx < 2 && (
+                  <div className="hidden md:block text-slate-300">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </div>
+                )}
+              </React.Fragment>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 步骤1 内容区 */}
+      <div className="flex-1 px-6 pb-8 overflow-y-auto">
+        <div className="w-full max-w-3xl mx-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
+            {/* 步骤标签 */}
+            <div className="flex items-center gap-2 mb-5">
+              <span className="px-2.5 py-1 bg-[#F2C94C]/10 text-[#F2C94C] text-xs font-bold rounded-lg">步骤 1 / 3</span>
+              <span className="text-sm font-bold text-slate-900">描述场景</span>
+              <span className="text-xs text-slate-400">输入你的管理困境，或从下方快速选择</span>
+            </div>
+
+            {/* 搜索输入区 */}
+            <div className="space-y-3 mb-8">
+              <div className={`rounded-xl transition-all ${showEmptyTip ? 'animate-pulse ring-2 ring-red-400' : ''}`}>
+                <IntentionCapture
+                  mode="new-search"
+                  placeholder="描述你的管理困境..."
+                  onSearch={(query) => {
+                    setPendingQuery(query);
+                    navigate('/diagnose-engine');
+                  }}
+                />
+              </div>
+              <button
+                onClick={handleStartDiagnose}
+                disabled={isLoading}
+                className={`w-full py-4 bg-[#F2C94C] hover:bg-[#E5B73B] text-white font-black text-lg rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                  !inputValue.trim() && !pendingQuery.trim() ? 'opacity-80' : ''
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    准备中...
+                  </>
+                ) : (
+                  '开始 AI 诊断'
+                )}
+              </button>
+              {showEmptyTip && (
+                <p className="text-center text-sm text-red-500 animate-pulse">
+                  请先描述你的管理困境
+                </p>
+              )}
+            </div>
+
+            {/* 常见困境 */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
+                <h3 className="text-sm font-bold text-slate-800">常见困境（点击快速选择）</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {COMMON_PROBLEMS.map((item, i) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    onClick={() => !isLoading && handleCardClick(item.desc)}
+                    className={`p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-[#F2C94C] hover:shadow-md hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    <h4 className="text-sm font-bold text-slate-800 mb-1 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{item.desc}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

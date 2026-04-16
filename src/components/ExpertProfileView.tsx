@@ -380,9 +380,9 @@ export const ExpertProfileView: React.FC<ExpertProfileViewProps> = ({
                     </div>
                   </div>
 
-                  {/* 连线主题 */}
+                  {/* 预约主题 */}
                   <div className="space-y-3 mb-6">
-                    <div className="text-sm font-bold text-slate-900">连线主题</div>
+                    <div className="text-sm font-bold text-slate-900">预约主题</div>
                     <div className="flex flex-wrap gap-2">
                       {['人才留存', '执行力破局', '战略解码'].map(theme => (
                         <button

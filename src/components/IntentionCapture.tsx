@@ -85,9 +85,7 @@ export const IntentionCapture: React.FC<Props> = ({
           )}
           <button
             onClick={handleSearch}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
-              query.trim() ? 'bg-[#F2C94C] text-white' : 'bg-slate-50 text-slate-300'
-            }`}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all bg-[#F2C94C] text-white hover:bg-[#E5B73B] shadow-md hover:shadow-lg"
           >
             立即提问
           </button>

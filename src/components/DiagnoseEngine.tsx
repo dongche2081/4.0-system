@@ -219,22 +219,66 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
         </div>
       </div>
 
-      {/* 进度条 */}
-      <div className="max-w-6xl mx-auto mb-6">
-        <p className="text-base font-bold text-slate-900 mb-3">
+      {/* 顶部进度区：诊断进度 + 答题进度 */}
+      <div className="max-w-6xl mx-auto mb-6 space-y-4">
+        <p className="text-base font-bold text-slate-900">
           {query || '正在针对特定管理场景进行深度研判...'}
         </p>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-600">诊断进度</span>
-          <span className="text-sm font-bold text-[#F2C94C]">{completedCount}/{dimensions.length}</span>
+        
+        {/* 诊断进度条 */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-slate-900">诊断进度</span>
+            <span className="text-sm font-bold text-[#F2C94C]">{completedCount}/{dimensions.length}</span>
+          </div>
+          <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <motion.div 
+              className="h-full bg-[#F2C94C]"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
         </div>
-        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-          <motion.div 
-            className="h-full bg-[#F2C94C]"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5 }}
-          />
+
+        {/* 答题进度 */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <h4 className="font-bold text-slate-900 mb-3 text-sm">答题进度</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {dimensions.map((dim, idx) => {
+              const isCompleted = selections[dim.id] !== undefined;
+              const isActive = activeDimensionIndex === idx;
+              return (
+                <div 
+                  key={dim.id}
+                  onClick={() => {
+                    setActiveDimensionIndex(idx);
+                    dimensionRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${
+                    isCompleted 
+                      ? 'bg-[#F2C94C]/10 border-[#F2C94C]/30' 
+                      : isActive 
+                        ? 'bg-slate-50 border-[#F2C94C]' 
+                        : 'bg-slate-50 border-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                    isCompleted 
+                      ? 'bg-[#F2C94C] text-white' 
+                      : isActive 
+                        ? 'bg-[#F2C94C]/20 text-[#F2C94C]' 
+                        : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    {isCompleted ? '✓' : idx + 1}
+                  </div>
+                  <span className={`text-xs truncate ${isActive ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                    {dim.title}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -300,7 +344,7 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
                           <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all mt-0.5 ${
                             selections[dim.id] === option.label ? 'border-[#F2C94C] bg-[#F2C94C]' : 'border-slate-200'
                           }`}>
-                            {selections[dim.id] === option.label && <div className="w-2 h-2 bg-white rounded-full" />}
+                            {selections[dim.id] === option.label && <div className="w-2 h-2 bg-white rounded-full"></div>}
                           </div>
                         </div>
                       </button>
@@ -341,48 +385,12 @@ export const DiagnoseEngine: React.FC<Props> = ({ initialContext, mode, query = 
           </motion.div>
 
           {/* 占位空间，防止被固定按钮遮挡 */}
-          <div className="h-24" />
+          <div className="h-24"></div>
         </div>
 
         {/* 右侧边栏 - 进度和提示 */}
         <div className="w-80 flex-shrink-0">
           <div className="sticky top-4 space-y-4">
-            {/* 完成状态卡片 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <h4 className="font-bold text-slate-900 mb-4">答题进度</h4>
-              <div className="space-y-3">
-                {dimensions.map((dim, idx) => {
-                  const isCompleted = selections[dim.id] !== undefined;
-                  const isActive = activeDimensionIndex === idx;
-                  return (
-                    <div 
-                      key={dim.id}
-                      onClick={() => {
-                        setActiveDimensionIndex(idx);
-                        dimensionRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }}
-                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
-                        isActive ? 'bg-[#F2C94C]/10' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        isCompleted 
-                          ? 'bg-[#F2C94C] text-white' 
-                          : isActive 
-                            ? 'bg-[#F2C94C]/20 text-[#F2C94C]' 
-                            : 'bg-slate-100 text-slate-400'
-                      }`}>
-                        {isCompleted ? '✓' : idx + 1}
-                      </div>
-                      <span className={`text-sm ${isActive ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
-                        {dim.title}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* 提示卡片 */}
             <div className="bg-[#F2C94C]/10 border border-[#F2C94C]/20 rounded-xl p-5">
               <div className="flex items-start gap-2">

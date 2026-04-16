@@ -458,11 +458,8 @@ export const StudyDetailView: React.FC<Props> = ({
                         </div>
                         
                         {/* 部门 + 职务 */}
-                        <div className="text-[10px] text-slate-400 mb-1 line-clamp-1" title={expert.department}>
-                          {expert.department || ''}
-                        </div>
-                        <div className="text-xs text-slate-500 mb-3 line-clamp-1" title={expert.position || expert.title}>
-                          {expert.position || expert.title}
+                        <div className="text-xs text-slate-500 mb-3 line-clamp-1" title={`${expert.department || ''} · ${expert.position || expert.title || ''}`}>
+                          {expert.department ? `${expert.department} · ${expert.position || expert.title}` : (expert.position || expert.title)}
                         </div>
                         
                         {/* 操作按钮 */}
