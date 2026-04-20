@@ -8,6 +8,7 @@ interface Props {
   mode?: 'new-search' | 'follow-up';
   variant?: 'default' | 'command';
   placeholder?: string;
+  hideSubmitButton?: boolean;
 }
 
 export const IntentionCapture: React.FC<Props> = ({
@@ -15,7 +16,8 @@ export const IntentionCapture: React.FC<Props> = ({
   onStartDiagnose,
   mode = 'new-search',
   variant = 'default',
-  placeholder
+  placeholder,
+  hideSubmitButton = false
 }) => {
   const [query, setQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -83,12 +85,14 @@ export const IntentionCapture: React.FC<Props> = ({
               <Mic className="w-5 h-5" />
             </button>
           )}
-          <button
-            onClick={handleSearch}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all bg-[#F2C94C] text-white hover:bg-[#E5B73B] shadow-md hover:shadow-lg"
-          >
-            立即提问
-          </button>
+          {!hideSubmitButton && (
+            <button
+              onClick={handleSearch}
+              className="px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all bg-[#F2C94C] text-white hover:bg-[#E5B73B] shadow-md hover:shadow-lg"
+            >
+              立即提问
+            </button>
+          )}
         </div>
       </motion.div>
 

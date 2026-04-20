@@ -1,67 +1,94 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { IntentionCapture } from '../components/IntentionCapture';
-import { COMMON_PROBLEMS } from '../constants/scenarios';
+import { DiagnoseWizard, WizardData } from '../components/DiagnoseWizard';
 import { useApp } from '../contexts/AppContext';
+import { calculateRiskAssessment } from '../services/ai-service';
+import { getQuestionSetKey } from '../components/DiagnoseWizard/questionsData';
+import { Topic, HistoryItem, Prescription } from '../types';
 
 const DiagnoseStartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { pendingQuery, setPendingQuery } = useApp();
-  
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showEmptyTip, setShowEmptyTip] = useState(false);
+  const {
+    context,
+    setContext,
+    setPendingQuery,
+    setSelectedTopic,
+    setDiagnosticContext,
+    setActivePrescription,
+    setActiveHistoryId,
+    setHistory,
+  } = useApp();
 
-  // 组件挂载时重置 loading 状态，防止卡住
-  useEffect(() => {
-    setIsLoading(false);
-  }, []);
+  const handleComplete = (data: WizardData) => {
+    const { scenario, answers, details } = data;
 
-  const handleStartDiagnose = () => {
-    if (!inputValue.trim() && !pendingQuery.trim()) {
-      setShowEmptyTip(true);
-      setTimeout(() => setShowEmptyTip(false), 2000);
-      return;
-    }
-    setIsLoading(true);
-    setPendingQuery(inputValue || pendingQuery);
-    // 添加超时保护，3秒后自动重置 loading 状态
-    const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
-    setTimeout(() => {
-      try {
-        navigate('/diagnose-engine');
-      } catch (e) {
-        console.error('导航失败:', e);
-        setIsLoading(false);
-        clearTimeout(timeoutId);
-      }
-    }, 300);
-  };
+    // 设置待诊断查询
+    setPendingQuery(scenario);
 
-  const handleCardClick = (desc: string) => {
-    setIsLoading(true);
-    setPendingQuery(desc);
-    // 添加超时保护，3秒后自动重置 loading 状态
-    const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
-    setTimeout(() => {
-      try {
-        navigate('/diagnose-engine');
-      } catch (e) {
-        console.error('导航失败:', e);
-        setIsLoading(false);
-        clearTimeout(timeoutId);
-      }
-    }, 300);
+    // 确定问题集类型
+    const questionSetKey = getQuestionSetKey(scenario);
+
+    // 计算风险评估
+    const riskAssessment = calculateRiskAssessment(
+      answers,
+      questionSetKey as 'talent' | 'execution' | 'general'
+    );
+
+    // 组装诊断数据
+    const diagnostic = {
+      intentStage: scenario,
+      riskAssessment: `${riskAssessment.level}（${riskAssessment.score}分）- ${riskAssessment.primaryRisk}`,
+      interventionProgress: Object.values(answers).join(' | '),
+      details,
+      teamContext: context,
+    };
+
+    // 设置诊断上下文
+    setDiagnosticContext(diagnostic);
+    setContext(diagnostic.teamContext);
+
+    // 创建话题
+    const topic: Topic = {
+      id: 'diagnostic-result',
+      title: `针对【${scenario}】的研判报告`,
+      type: '战友最痛',
+    };
+    setSelectedTopic(topic);
+
+    // 创建处方
+    const prescription: Prescription = {
+      truth: `### 研判真相：${scenario}\n\n**研判维度：** ${questionSetKey === 'talent' ? '人才保留' : questionSetKey === 'execution' ? '执行力穿透' : '基础组织画像'}\n\n**核心发现：** ${Object.values(answers).filter(v => typeof v === 'string' && v.length > 0).join(' | ')}\n\n--- \n\n基于您的团队画像，AI 管理能力提升助手建议：\n\n1. **精准打击**：针对研判出的核心问题，立即启动专项对齐。\n2. **工具赋能**：引入匹配当前阶段的管理工具。`,
+      summary: `当前团队核心骨干流失风险已达临界点，主要源于业务快速扩张期压力传导失衡，以及管理者对核心人才情绪价值与成长路径规划的长期忽视。建议指挥官立即开启非业务导向的一对一深度面谈，剥离KPI考核，纯粹探寻其个人职业发展诉求与当前核心痛点，切忌单纯依靠物质承诺进行防御性挽留。通过此次精准的心理干预与资源倾斜，预期能有效缓解骨干成员的职业倦怠感，重建团队信任纽带，将核心人才流失风险降低至安全水位，从而确保组织在高速行军中的核心战斗力与业务连续性。`,
+      script: { opening: '“我们来聊聊这件事...”', responses: ['正在生成话术...'], closing: '“按此执行即可。”' },
+      redLines: ['正在划定红线...']
+    };
+    setActivePrescription(prescription);
+
+    // 保存历史记录
+    const newHistoryId = Date.now().toString();
+    setActiveHistoryId(newHistoryId);
+    const historyItem: HistoryItem = {
+      id: newHistoryId,
+      query: `针对【${scenario}】的研判报告`,
+      aiResponse: '研判报告已生成',
+      timestamp: Date.now(),
+      context: { ...diagnostic.teamContext },
+      isDeepDiagnosis: true,
+      diagnosticContext: diagnostic,
+      prescription
+    };
+    setHistory(prev => [historyItem, ...prev]);
+
+    const savedHistory = JSON.parse(localStorage.getItem('management_history') || '[]');
+    localStorage.setItem('management_history', JSON.stringify([historyItem, ...savedHistory]));
+
+    // 导航到结果页
+    navigate('/diagnose-result');
   };
 
   return (
     <div className="flex-1 flex flex-col bg-[#F8FAFC]">
-      {/* 顶部 - 标题 + 步骤指示器 */}
+      {/* 顶部 - 标题 */}
       <div className="flex-shrink-0 flex flex-col items-center justify-center px-6 pt-8 pb-4">
         <div className="w-full max-w-3xl space-y-4">
           {/* 标题区 */}
@@ -73,110 +100,13 @@ const DiagnoseStartPage: React.FC = () => {
               描述您面临的挑战，并且回答几个针对性问题，AI将为您生成个性化行动建议。
             </p>
           </div>
-
-          {/* 步骤指示器 */}
-          <div className="flex items-center justify-center gap-2 md:gap-4 py-2">
-            {[
-              { step: 1, title: '描述场景', desc: '输入你的管理困境' },
-              { step: 2, title: '回答题目', desc: '几道关键调研题目' },
-              { step: 3, title: 'AI 生成', desc: '定制化，可追问' },
-            ].map((s, idx) => (
-              <React.Fragment key={s.step}>
-                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                  s.step === 1 
-                    ? 'bg-[#F2C94C] border-[#F2C94C] text-white shadow-md' 
-                    : 'bg-white border-slate-200 text-slate-400'
-                }`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    s.step === 1 ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
-                  }`}>
-                    {s.step}
-                  </div>
-                  <div className="hidden md:block">
-                    <div className={`text-sm font-bold ${s.step === 1 ? 'text-white' : 'text-slate-600'}`}>{s.title}</div>
-                    <div className={`text-[10px] ${s.step === 1 ? 'text-white/80' : 'text-slate-400'}`}>{s.desc}</div>
-                  </div>
-                </div>
-                {idx < 2 && (
-                  <div className="hidden md:block text-slate-300">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* 步骤1 内容区 */}
+      {/* Wizard 内容区 */}
       <div className="flex-1 px-6 pb-8 overflow-y-auto">
         <div className="w-full max-w-3xl mx-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-            {/* 步骤标签 */}
-            <div className="flex items-center gap-2 mb-5">
-              <span className="px-2.5 py-1 bg-[#F2C94C]/10 text-[#F2C94C] text-xs font-bold rounded-lg">步骤 1 / 3</span>
-              <span className="text-sm font-bold text-slate-900">描述场景</span>
-              <span className="text-xs text-slate-400">输入你的管理困境，或从下方快速选择</span>
-            </div>
-
-            {/* 搜索输入区 */}
-            <div className="space-y-3 mb-8">
-              <div className={`rounded-xl transition-all ${showEmptyTip ? 'animate-pulse ring-2 ring-red-400' : ''}`}>
-                <IntentionCapture
-                  mode="new-search"
-                  placeholder="描述你的管理困境..."
-                  onSearch={(query) => {
-                    setPendingQuery(query);
-                    navigate('/diagnose-engine');
-                  }}
-                />
-              </div>
-              <button
-                onClick={handleStartDiagnose}
-                disabled={isLoading}
-                className={`w-full py-4 bg-[#F2C94C] hover:bg-[#E5B73B] text-white font-black text-lg rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-                  !inputValue.trim() && !pendingQuery.trim() ? 'opacity-80' : ''
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    准备中...
-                  </>
-                ) : (
-                  '开始 AI 诊断'
-                )}
-              </button>
-              {showEmptyTip && (
-                <p className="text-center text-sm text-red-500 animate-pulse">
-                  请先描述你的管理困境
-                </p>
-              )}
-            </div>
-
-            {/* 常见困境 */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1 h-5 bg-[#F2C94C] rounded-full"></div>
-                <h3 className="text-sm font-bold text-slate-800">常见困境（点击快速选择）</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {COMMON_PROBLEMS.map((item, i) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    onClick={() => !isLoading && handleCardClick(item.desc)}
-                    className={`p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-[#F2C94C] hover:shadow-md hover:shadow-[#F2C94C]/5 transition-all cursor-pointer group ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
-                  >
-                    <h4 className="text-sm font-bold text-slate-800 mb-1 group-hover:text-[#F2C94C] transition-colors">{item.title}</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{item.desc}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <DiagnoseWizard onComplete={handleComplete} />
         </div>
       </div>
     </div>

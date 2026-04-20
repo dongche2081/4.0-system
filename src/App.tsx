@@ -4,13 +4,13 @@ import { AppView, ProfileContext, Topic, HistoryItem, Prescription, Expert, Expe
 import { TOPICS, SCENARIO_DATA, PRESCRIPTION_DATA, EXPERTS, EXPERT_CASES } from './data';
 import { generateManagementFeedback } from './services/ai-service';
 import { backupUserData, checkCloudBackup, restoreFromBackup, shouldBackup, getLastBackupTime } from './services/backup';
-import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './contexts/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { SimulationEngine } from './components/SimulationEngine';
 import { IntentionCapture } from './components/IntentionCapture';
-import { DiagnoseEngine } from './components/DiagnoseEngine';
+
 import { DiagnoseResultView } from './components/DiagnoseResultView';
 import { DiagnosticResultView } from './components/DiagnosticResultView';
 import { StudyDetailView } from './components/StudyDetailView';
@@ -610,23 +610,13 @@ function AppContent() {
 
               <Route path="/diagnose-start" element={<DiagnoseStartPage />} />
 
-              <Route path="/diagnose-engine" element={
-                <div className="max-w-3xl mx-auto py-10">
-                  <DiagnoseEngine
-                    mode="problem"
-                    query={pendingQuery}
-                    targetTopicId={targetTopicId || undefined}
-                    initialContext={context}
-                    onComplete={handleDiagnosisComplete}
-                  />
-                </div>
-              } />
+              <Route path="/diagnose-engine" element={<Navigate to="/diagnose-start" replace />} />
 
               <Route path="/diagnose-result" element={
                 <DiagnoseResultView
                   query={pendingQuery}
                   answers={{}}
-                  onBack={() => navigate('/diagnose-engine')}
+                  onBack={() => navigate('/diagnose-start')}
                 />
               } />
 
