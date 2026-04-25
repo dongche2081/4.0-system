@@ -88,23 +88,8 @@ const DiagnoseStartPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col bg-[#F8FAFC]">
-      {/* 顶部 - 标题 */}
-      <div className="flex-shrink-0 flex flex-col items-center justify-center px-6 pt-8 pb-4">
-        <div className="w-full max-w-3xl space-y-4">
-          {/* 标题区 */}
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-              <span className="text-[#F2C94C]">AI</span> 诊断你的管理困境
-            </h1>
-            <p className="text-slate-500 text-base max-w-xl mx-auto">
-              描述您面临的挑战，并且回答几个针对性问题，AI将为您生成个性化行动建议。
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Wizard 内容区 */}
-      <div className="flex-1 px-6 pb-8 overflow-y-auto">
+      <div className="flex-1 px-6 pb-8">
         <div className="w-full max-w-3xl mx-auto">
           <DiagnoseWizard onComplete={handleComplete} />
         </div>

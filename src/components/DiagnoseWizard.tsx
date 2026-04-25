@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { StepScenario } from './DiagnoseWizard/StepScenario';
 import { StepQuestions } from './DiagnoseWizard/StepQuestions';
 import { StepResult } from './DiagnoseWizard/StepResult';
+import { DIMENSIONS_MAP, getQuestionSetKey } from './DiagnoseWizard/questionsData';
 
 export interface WizardData {
   scenario: string;
@@ -23,6 +25,11 @@ export const DiagnoseWizard: React.FC<Props> = ({ onComplete }) => {
 
   const canGoToStep2 = scenario.trim().length > 0;
   const canStartDiagnosis = Object.keys(answers).length >= 3;
+
+  const questionSetKey = getQuestionSetKey(scenario);
+  const dimensions = DIMENSIONS_MAP[questionSetKey];
+  const completedCount = Object.keys(answers).length;
+  const progress = (completedCount / dimensions.length) * 100;
 
   const handleNext = () => {
     if (canGoToStep2) {
@@ -55,8 +62,24 @@ export const DiagnoseWizard: React.FC<Props> = ({ onComplete }) => {
 
   return (
     <div>
-      {/* 步骤指示器 */}
-      <div className="flex items-center justify-center gap-2 md:gap-4 py-4 mb-6">
+      {/* Sticky Header: 标题 + 步骤指示器 */}
+      <div className="sticky top-0 z-30 bg-[#F8FAFC]">
+        {/* 标题区 */}
+        <div className="flex flex-col items-center justify-center pt-8 pb-4">
+          <div className="w-full max-w-3xl space-y-4">
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                <span className="text-[#F2C94C]">AI</span> 诊断你的管理困境
+              </h1>
+              <p className="text-slate-500 text-base max-w-xl mx-auto">
+                描述您面临的挑战，并且回答几个针对性问题，AI将为您生成个性化行动建议。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 步骤指示器 */}
+        <div className="flex items-center justify-center gap-2 md:gap-4 py-4 mb-6">
         {steps.map((s, idx) => (
           <React.Fragment key={s.step}>
             <div
@@ -120,6 +143,33 @@ export const DiagnoseWizard: React.FC<Props> = ({ onComplete }) => {
           </React.Fragment>
         ))}
       </div>
+
+        {/* 步骤2的进度信息 */}
+        {currentStep === 2 && (
+          <div className="max-w-3xl mx-auto pb-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 bg-[#F2C94C]/10 text-[#F2C94C] text-xs font-bold rounded-lg">步骤 2 / 3</span>
+              <span className="text-sm font-bold text-slate-900">回答调研题目</span>
+              <span className="text-xs text-slate-400">基于您的场景「{scenario.length > 20 ? scenario.slice(0, 20) + '...' : scenario}」匹配题目</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-slate-900">答题进度</span>
+                <span className="text-sm font-bold text-[#F2C94C]">{completedCount}/{dimensions.length}</span>
+              </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-[#F2C94C]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>{/* /sticky header */}
 
       {/* 步骤内容 */}
       <div className="max-w-3xl mx-auto">
